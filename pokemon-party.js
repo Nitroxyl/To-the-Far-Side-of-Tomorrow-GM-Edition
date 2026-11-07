@@ -10,7 +10,7 @@ import {applyMegaOverlays,cleanMegaSnapshot} from './pokemon-mega-assignments.js
 import {suggestedMegaStone,hasRequiredMegaStone} from './pokemon-mega-stones.js';
 import {SANTARA_CATALOG_GROUPS,santaraCatalogEntries} from './santara-catalog.js';
 import {artworkEntries,artworkFor,artworkPropagation} from './pokemon-artwork.js';
-import {customContentLibraryUI} from './pokemon-custom-library.js';
+import {customContentLibraryUI} from './pokemon-custom-library.js?v=effects-2';
 import {assignmentProblems} from './pokemon-assignment-check.js';
 
 const GM_UID='ctBLgrVgkLOzUJYTyYgU9IwejYx1';
