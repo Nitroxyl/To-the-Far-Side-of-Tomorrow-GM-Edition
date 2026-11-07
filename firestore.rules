@@ -398,93 +398,6 @@ service cloud.firestore {
         && request.resource.data.heldItem.size() <= 80
         && request.resource.data.updatedAt == request.time;
     }
-    // A battle state is independent of the permanent Pokemon record. Players
-    // can only modify the state of Pokemon they own; the GM can run encounters.
-    function combatStageValid(st) {
-      return st is map
-        && st.keys().hasOnly(['attack','defense','specialAttack','specialDefense','speed','accuracy','evasion'])
-        && st.keys().hasAll(['attack','defense','specialAttack','specialDefense','speed','accuracy','evasion'])
-        && st.attack is int && st.attack >= -6 && st.attack <= 6
-        && st.defense is int && st.defense >= -6 && st.defense <= 6
-        && st.specialAttack is int && st.specialAttack >= -6 && st.specialAttack <= 6
-        && st.specialDefense is int && st.specialDefense >= -6 && st.specialDefense <= 6
-        && st.speed is int && st.speed >= -6 && st.speed <= 6
-        && st.accuracy is int && st.accuracy >= -6 && st.accuracy <= 6
-        && st.evasion is int && st.evasion >= -6 && st.evasion <= 6;
-    }
-    function combatStateValid(d, pokemonId) {
-      return exists(/databases/$(database)/documents/santara_pokemon/$(pokemonId))
-        && d.keys().hasOnly(['ownerUid','turn','stages','moveRecords','updatedAt'])
-        && d.keys().hasAll(['ownerUid','turn','stages','moveRecords','updatedAt'])
-        && d.ownerUid ==
-           get(/databases/$(database)/documents/santara_pokemon/$(pokemonId)).data.ownerUid
-        && d.turn is int && d.turn >= 1 && d.turn <= 10000
-        && combatStageValid(d.stages)
-        && d.moveRecords is list && d.moveRecords.size() <= 24
-        && d.updatedAt == request.time;
-    }
-    match /santara_combat_state/{pokemonId} {
-      allow get, list: if gm() || (approved() && resource.data.ownerUid == request.auth.uid);
-      allow create, update: if combatStateValid(request.resource.data,pokemonId)
-        && (gm() || (approved() && request.resource.data.ownerUid == request.auth.uid));
-      allow delete: if gm() || (approved() && resource.data.ownerUid == request.auth.uid);
-    }
-
-    function combatEffectValid(e) {
-      return e is map
-        && e.keys().hasOnly(['kind','recipient','chance','amount','status','stat'])
-        && e.keys().hasAll(['kind','recipient','chance','amount','status','stat'])
-        && e.kind in ['status','heal','fixed_damage','stage']
-        && e.recipient in ['self','target']
-        && e.chance is int && e.chance >= 1 && e.chance <= 100
-        && e.amount is int && e.amount >= -3000 && e.amount <= 3000
-        && e.status in ['None','Burned','Poisoned','Badly poisoned','Paralyzed','Asleep','Frozen']
-        && e.stat in ['attack','defense','specialAttack','specialDefense','speed','accuracy','evasion']
-        && (e.kind != 'stage' || (e.amount >= -6 && e.amount <= 6))
-        && !(e.kind in ['heal','fixed_damage'] && e.amount < 0);
-    }
-    function combatProfileValid(d) {
-      return d.keys().hasOnly(['kind','name','trigger','target','priority','range','cooldown','maxUses','effects','visibility','updatedAt'])
-        && d.keys().hasAll(['kind','name','trigger','target','priority','range','cooldown','maxUses','effects','visibility','updatedAt'])
-        && d.kind in ['move','ability']
-        && d.visibility in ['public','gm']
-        && d.name is string && d.name.size() > 0 && d.name.size() <= 48
-        && d.trigger in ['manual','on_enter','turn_start','turn_end','on_hit','on_ko']
-        && d.target in ['self','ally','opponent']
-        && d.priority is int && d.priority >= -7 && d.priority <= 7
-        && d.range is int && d.range >= 0 && d.range <= 30
-        && d.cooldown is int && d.cooldown >= 0 && d.cooldown <= 10
-        && d.maxUses is int && d.maxUses >= 0 && d.maxUses <= 40
-        && d.effects is list && d.effects.size() <= 4
-        && (d.effects.size() < 1 || combatEffectValid(d.effects[0]))
-        && (d.effects.size() < 2 || combatEffectValid(d.effects[1]))
-        && (d.effects.size() < 3 || combatEffectValid(d.effects[2]))
-        && (d.effects.size() < 4 || combatEffectValid(d.effects[3]))
-        && d.updatedAt == request.time;
-    }
-    match /santara_combat_profiles/{profileId} {
-      allow get, list: if gm() || (approved() && resource.data.visibility == 'public');
-      allow create, update: if gm() && combatProfileValid(request.resource.data);
-      allow delete: if gm();
-    }
-
-    // These narrowly scoped, GM-or-own-Trainer combat HP/status updates
-    // preserve compatibility with Pokémon recorded before later mechanics.
-    function combatHpStatusUpdate() {
-      return (gm() || (approved() && resource.data.ownerUid == request.auth.uid))
-        && request.resource.data.ownerUid == resource.data.ownerUid
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'currentHp','status','updatedAt'
-        ])
-        && request.resource.data.currentHp is int
-        && request.resource.data.currentHp >= 0
-        && request.resource.data.currentHp <= resource.data.maxHp
-        && request.resource.data.status in [
-          'None','Burned','Poisoned','Badly poisoned','Paralyzed','Asleep','Frozen'
-        ]
-        && request.resource.data.updatedAt == request.time;
-    }
-
     match /santara_pokemon/{pokemonId} {
       allow get, list: if gm() || (approved() && resource.data.ownerUid == request.auth.uid);
       allow create: if gm() && pokemonValid(request.resource.data);
@@ -493,7 +406,6 @@ service cloud.firestore {
         || gmLegacySlotUpdate()
         || gmLegacyMegaUpdate()
         || gmLegacyHeldItemUpdate()
-        || combatHpStatusUpdate()
         || (approved() && resource.data.ownerUid == request.auth.uid
           && request.resource.data.ownerUid == resource.data.ownerUid
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
