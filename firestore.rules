@@ -444,9 +444,10 @@ service cloud.firestore {
         && !(e.kind in ['heal','fixed_damage'] && e.amount < 0);
     }
     function combatProfileValid(d) {
-      return d.keys().hasOnly(['kind','name','trigger','target','priority','range','cooldown','maxUses','effects','updatedAt'])
-        && d.keys().hasAll(['kind','name','trigger','target','priority','range','cooldown','maxUses','effects','updatedAt'])
+      return d.keys().hasOnly(['kind','name','trigger','target','priority','range','cooldown','maxUses','effects','visibility','updatedAt'])
+        && d.keys().hasAll(['kind','name','trigger','target','priority','range','cooldown','maxUses','effects','visibility','updatedAt'])
         && d.kind in ['move','ability']
+        && d.visibility in ['public','gm']
         && d.name is string && d.name.size() > 0 && d.name.size() <= 48
         && d.trigger in ['manual','on_enter','turn_start','turn_end','on_hit','on_ko']
         && d.target in ['self','ally','opponent']
@@ -462,7 +463,7 @@ service cloud.firestore {
         && d.updatedAt == request.time;
     }
     match /santara_combat_profiles/{profileId} {
-      allow get, list: if member();
+      allow get, list: if gm() || (approved() && resource.data.visibility == 'public');
       allow create, update: if gm() && combatProfileValid(request.resource.data);
       allow delete: if gm();
     }
