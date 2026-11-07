@@ -13,7 +13,7 @@ export function customContentLibraryUI({species=[],megas=[],moves=[],abilities=[
  const btn=(kind,txt)=>'<button class="btn small" data-act="library-new" data-kind="'+kind+'">+ '+txt+'</button>';
  return '<section class="panel"><div class="toolbar"><div><h2>Custom Content Library</h2><p>Browse, create, edit or delete reusable Santara content. Existing assigned Pokémon are not deleted when a definition is removed.</p></div><button class="btn" data-act="back">← Party</button></div>'+
   '<div class="actions">'+btn('species','Species')+btn('mega','Mega')+btn('move','Move')+btn('ability','Ability')+
-  '<button class="btn small" data-act="santara-catalog">Import Santara presets</button></div>'+
+  '<button class="btn small" data-act="santara-catalog">Import Santara presets</button><a class="btn small" href="./pokemon-combat.html?v=effects-2">Configure move &amp; ability effects</a></div>'+
   '<div class="library-toolbar"><label class="field">Content type<select id="library-kind">'+KINDS.map(x=>'<option value="'+x[0]+'" '+(x[0]===category?'selected':'')+'>'+x[1]+'</option>').join('')+'</select></label>'+
   '<label class="field">Search<input id="library-search" type="search" placeholder="Search names and effects" value="'+esc(search)+'"></label></div>'+
   '<p class="hint">'+species.length+' species · '+megas.length+' Megas · '+moves.length+' moves · '+abilities.length+' abilities</p>'+
