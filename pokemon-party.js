@@ -165,7 +165,13 @@ function catalogForm(kind){
  <label class="field">Category<select name="category">${['Physical','Special','Status'].map(t=>option(t,t,chosen?.category||'Physical')).join('')}</select></label>
  <label class="field">Base Power (optional)<input name="power" type="number" min="0" max="300" placeholder="e.g. 90" value="${chosen?.power??''}"></label>
  <label class="field">Accuracy % (optional)<input name="accuracy" type="number" min="1" max="100" placeholder="Leave empty if it cannot miss" value="${chosen?.accuracy??''}"></label>
- <label class="field full">D&D dice or damage notation (optional)<input name="dice" maxlength="120" placeholder="e.g. 4d8, or scaling by level" value="${esc(chosen?.dice||'')}"></label>`:''}
+ <label class="field full">D&D dice or damage notation (optional)<input name="dice" maxlength="120" placeholder="e.g. 4d8, or scaling by level" value="${esc(chosen?.dice||'')}"></label>
+ <label class="field full">Eligible Pokémon species / form IDs (comma-separated)
+ <textarea name="allowedSpeciesKeys" maxlength="2400" placeholder="e.g. growlithe-hisui, custom:spinotroleum — use * ONLY for a genuinely universal move">${esc(customMoveScope(chosen).allowedSpeciesKeys.join(', '))}</textarea>
+ <span class="hint">Leave blank to keep this move unassigned. Regional variants need their own form ID. Use * to explicitly allow all species.</span></label>
+ <label class="field full">Required assigned Mega form (optional)
+ <input name="requiredMegaSlug" maxlength="70" placeholder="e.g. mega-charizard-z" value="${esc(customMoveScope(chosen).requiredMegaSlug)}">
+ <span class="hint">Exclusive Mega moves are suggested only when this exact Mega form is assigned. Infernal Sweep defaults to Mega Charizard Z.</span></label>`:''}
  <label class="field full">${isMove?'Move effects, targeting and range':'Ability effect'}<textarea name="description" minlength="1" maxlength="1000" required placeholder="Describe how the ${isMove?'move':'ability'} works in our tabletop rules.">${esc(chosen?.description||'')}</textarea></label>
  <p class="hint full">Entering an existing custom name replaces that definition; it will also update the description shown on Pokémon sheets using it.</p>
  <div class="actions"><button class="btn primary" type="submit">Save ${isMove?'custom move':'custom ability'}</button></div>
@@ -189,7 +195,12 @@ async function saveCatalog(form,isMove){
   if(!['Physical','Special','Status'].includes(category))throw Error('Choose a move category.');
   if(power!==null&&(!Number.isInteger(power)||power<0||power>300))throw Error('Base Power must be between 0 and 300.');
   if(accuracy!==null&&(!Number.isInteger(accuracy)||accuracy<1||accuracy>100))throw Error('Accuracy must be between 1 and 100.');
-  record={...record,type,category,power,accuracy,dice:cap(fd.get('dice'),120)};
+  const allowedSpeciesKeys=String(fd.get('allowedSpeciesKeys')||'').split(/[\n,]+/).map(speciesKey).filter(Boolean);
+  const requiredMegaSlug=speciesKey(fd.get('requiredMegaSlug'));
+  if(!validCustomMoveScope({allowedSpeciesKeys,requiredMegaSlug}))
+   throw Error('Use valid species/form IDs (up to 30), and a matching Mega form ID when required. Do not use * for a Mega-exclusive move.');
+  if(new Set(allowedSpeciesKeys).size!==allowedSpeciesKeys.length)throw Error('Remove duplicate species IDs.');
+  record={...record,type,category,power,accuracy,dice:cap(fd.get('dice'),120),allowedSpeciesKeys,requiredMegaSlug};
  }
  await setDoc(doc(store,coll,slug),record);
  const list=isMove?customMoves:customAbilities;
@@ -722,6 +733,7 @@ async function reviewRequest(id){
  const species=request.speciesKey.startsWith('custom:')
   ?customFrom(customs.find(x=>'custom:'+x.slug===request.speciesKey))
   :await fetchOfficial(request.speciesKey);
+ await loadSpeciesForms(species);
  activeRequestId=request.id;
  editingId='';chosen='';draft={...species,level:request.level,nickname:request.nickname,
   origin:request.notes,maxHp:maxHpV4Baseline(species.baseStats,request.level),
@@ -788,6 +800,8 @@ function gmForm(){
  <form id="assign-form" class="form-grid">
  <label class="field full">Species / Form<input id="species-query" name="species" list="species-list" required placeholder="e.g. Charizard (regular form); pick Mega Charizard Z below" value="${esc(d.speciesName||'')}"><datalist id="species-list">${customs.map(x=>`<option value="${esc(x.name)}"></option>`).join('')}</datalist></label>
  <div class="actions"><button class="btn" data-act="lookup" type="button">Fetch stats from PokéAPI / custom list</button><span class="hint" id="species-source">${draft?esc(d.source||''):'Look up a species before saving.'}</span></div>
+ ${formPicker(d)}
+ ${formDiscoveryError?'<p class="hint full">Form search unavailable: '+esc(formDiscoveryError)+'. Direct form IDs still work if supported by PokéAPI.</p>':''}
  <label class="field">Assign to Trainer<select name="ownerUid" required>${managedTrainers().map(t=>option(t.uid,trainerLabel(t.uid)+(t.authorizedRequester?' · authorized requester':''),d.ownerUid||ownerFilter)).join('')}</select></label>
  <label class="field">Level<input name="level" type="number" min="1" max="100" required value="${level}"></label>
  <label class="field">Nickname<input name="nickname" maxlength="32" value="${esc(d.nickname||'')}"></label>
@@ -801,9 +815,9 @@ function gmForm(){
  <label class="field">Required Mega Stone<input name="requiredStone" maxlength="80" value="${esc(megaAssignments[existing?.id]?.requiredStone||suggestedMegaStone(d,megaChoiceFor(d).find(x=>x.slug===d.megaForm?.slug)||d.megaForm))}" placeholder="e.g. Charizardite Z"><span class="hint">Set by the GM for this assigned Mega. Custom stone names are supported.</span></label>
  <label class="field">Held item<input name="heldItem" maxlength="80" value="${esc(d.heldItem||'')}"></label>
  ${existing?'<div class="actions"><button type="button" class="btn small" data-act="equip-mega-stone">Equip required Mega Stone</button></div>':''}
- <div class="field full"><span class="eyebrow">Four move slots</span><p class="hint">Choose one move per slot. Each field searches the official learnset and your saved custom moves.</p>
+ <div class="field full"><span class="eyebrow">Four move slots</span><p class="hint">Only moves in this Pokémon's official form learnset or explicitly eligible custom moves are available. Mega-exclusive moves require the corresponding assigned Mega form.</p><p class="hint" id="move-legality-feedback" aria-live="polite"></p>
  <div class="move-fields">${Array.from({length:4},(_,i)=>`<label class="field">Move ${i+1}<input name="move${i+1}" maxlength="48" list="known-moves" placeholder="Search or type a move" value="${esc((d.moves||[])[i]||'')}"></label>`).join('')}</div>
- <datalist id="known-moves">${moveOptions(d).map(name=>`<option value="${esc(name)}"></option>`).join('')}</datalist>
+ <datalist id="known-moves">${moveOptions(d,d.megaForm?.slug||'').map(name=>`<option value="${esc(name)}"></option>`).join('')}</datalist>
  <div class="actions"><button type="button" class="btn small" data-act="define-move">+ Define custom move</button><button type="button" class="btn small" data-act="define-ability">+ Define custom ability</button></div></div>
  <label class="field full">Location obtained / history<input name="origin" maxlength="150" value="${esc(d.origin||'')}"></label>
  <label class="field full">Shared notes (visible to Trainer)<textarea name="notes" maxlength="1000">${esc(d.notes||'')}</textarea></label>
@@ -812,6 +826,20 @@ function gmForm(){
  ${existing?'<button class="btn" type="button" data-act="mega-only">Save Mega form only</button>':''}</div>
  ${existing?'<p class="hint full">Save Mega form only updates this Pokémon’s Mega link without changing its other stats, moves, HP or party slot. Use this for an older Pokémon if a full save is denied.</p>':''}
  </form></section>`;
+}
+function refreshMoveOptions(){
+ const form=document.getElementById('assign-form');
+ const mon=draft||pokemon.find(m=>m.id===editingId);
+ if(!form||!mon)return;
+ const megaSlug=String(form.elements.megaSlug?.value||'');
+ const select=document.getElementById('known-moves');
+ if(select)select.innerHTML=moveOptions(mon,megaSlug).map(name=>`<option value="${esc(name)}"></option>`).join('');
+ const chosen=Array.from({length:4},(_,i)=>cap(form.elements['move'+(i+1)]?.value,48)).filter(Boolean);
+ const invalid=chosen.filter(name=>!legalMove(name,mon,customMoves,megaSlug));
+ const hint=document.getElementById('move-legality-feedback');
+ if(hint)hint.textContent=invalid.length
+  ?'Not in this form’s legal learnset: '+invalid.join(', ')+'. Remove these moves before saving.'
+  :'';
 }
 function rulesForm(){
  const r=battleRules||{};
@@ -992,6 +1020,13 @@ async function saveAssign(form){
  const level=Number(f.get('level')),slot=Number(f.get('slot'));
  const maxHp=Number(f.get('maxHp')),currentHp=Number(f.get('currentHp'));
  const moves=registrationMoves(f);
+ if(speciesKey(f.get('species'))!==speciesKey(d.speciesName))
+  throw Error('Species name changed. Click Fetch stats again or choose a listed regional form before saving.');
+ const official=d.source==='official'?await fetchOfficial(d.speciesKey):null;
+ const validated={...d,knownMoves:official?.knownMoves||[]};
+ const selectedForMoves=String(f.get('megaSlug')||'');
+ const illegal=moves.filter(name=>!legalMove(name,validated,customMoves,selectedForMoves));
+ if(illegal.length)throw Error('Not available in '+d.speciesName+'\'s learnset: '+illegal.join(', ')+'. Custom-exclusive moves require their specified species/form and assigned Mega, if any.');
  const teraType=String(f.get('teraType')||d.teraType||d.types?.[0]||'normal');
  if(!TYPES.includes(teraType))throw Error('Choose a valid Tera type.');
  const megaSlug=String(f.get('megaSlug')||'');
@@ -1133,7 +1168,7 @@ root.addEventListener('click',async e=>{
     busy=true;b.disabled=true;say('Fetching species stats…');
     const input=document.getElementById('species-query');
     const species=await findSpecies(input.value);
-    draft={...(draft||{}),...species};
+    draft={...(draft||{}),...species,moves:[]};
     const enteredLevel=Number(document.querySelector('#assign-form [name="level"]')?.value);
     draft.level=Number.isInteger(enteredLevel)&&enteredLevel>=1&&enteredLevel<=100?enteredLevel:5;
     draft.maxHp=maxHpV4Baseline(species.baseStats,draft.level);
@@ -1146,9 +1181,9 @@ root.addEventListener('click',async e=>{
   if(action==='edit'&&GM_SITE){
    editingId=b.dataset.id;draft={...pokemon.find(x=>x.id===editingId)};
    if(draft.source==='official'){
-     try {const official=await fetchOfficial(draft.speciesKey);draft.knownMoves=official.knownMoves;draft.abilities=official.abilities}
-     catch(e){console.warn('Official move suggestions are temporarily unavailable:',e.message)}
-   }
+     try {const official=await fetchOfficial(draft.speciesKey);draft.knownMoves=official.knownMoves;draft.abilities=official.abilities;draft.parentSpeciesKey=official.parentSpeciesKey;await loadSpeciesForms(official)}
+     catch(e){console.warn('Official form/learnset suggestions are temporarily unavailable:',e.message)}
+   }else availableForms=[];
    view='assign';chosen='';render();
   }
   if(action==='delete'&&GM_SITE){
@@ -1178,6 +1213,12 @@ root.addEventListener('change',e=>{
   const form=e.target.closest('form'),mon=draft||pokemon.find(x=>x.id===editingId);
   const selected=megaChoiceFor(mon).find(x=>x.slug===e.target.value);
   if(form?.elements.requiredStone)form.elements.requiredStone.value=suggestedMegaStone(mon,selected);
+  refreshMoveOptions();
+ }
+ if(e.target.name==='speciesForm'&&view==='assign'){
+  const value=e.target.value;
+  busy=true;
+  changeSpeciesForm(value).catch(fail).finally(()=>{busy=false});
  }
  if(e.target.id==='library-kind'&&view==='custom-library'){libraryKind=e.target.value;render();return}
  if(e.target.id==='artwork-kind-filter'&&view==='artwork-library'){
