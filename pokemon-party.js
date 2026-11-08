@@ -12,7 +12,7 @@ import {SANTARA_CATALOG_GROUPS,santaraCatalogEntries} from './santara-catalog.js
 import {artworkEntries,artworkFor,artworkPropagation} from './pokemon-artwork.js';
 import {customContentLibraryUI} from './pokemon-custom-library.js';
 import {assignmentProblems} from './pokemon-assignment-check.js';
-import {pokemonLookupKey,fetchPokeApi,discoverPokemonForms,isGimmickVariety,readableForm,customMoveScope,validCustomMoveScope,legalMove,eligibleMoveNames,speciesKey,moveKey} from './pokemon-forms-learnsets.js?v=lookup-recovery-20261109-1';
+import {officialMoveCatalog,officialMoveSource,pokemonLookupKey,fetchPokeApi,discoverPokemonForms,isGimmickVariety,readableForm,customMoveScope,validCustomMoveScope,legalMove,eligibleMoveNames,speciesKey,moveKey} from './pokemon-forms-learnsets.js?v=form-tms-20261109-1';
 
 const GM_UID='ctBLgrVgkLOzUJYTyYgU9IwejYx1';
 const GM_SITE=window.SANTARA_POKEMON_EDITION==='gm';
@@ -638,6 +638,11 @@ async function fetchOfficial(name){
     throw Error('PokéAPI could not load "'+name+'" (HTTP '+result.status+'). Please try again.');
    }
   const p=await result.json(),found=fromPokeApi(p);
+   const learns=officialMoveCatalog(p);
+   found.knownMoves=learns.knownMoves;
+   found.moveMethods=learns.moveMethods;
+   found.learnsetVersionGroup=learns.versionGroup;
+   found.tmMoves=learns.tmMoves;
   if(found.parentSpeciesKey!==found.speciesKey)
    found.speciesName=readableForm(found.speciesKey,found.parentSpeciesKey);
   return found;
@@ -837,9 +842,9 @@ function gmForm(){
  <label class="field">Required Mega Stone<input name="requiredStone" maxlength="80" value="${esc(megaAssignments[existing?.id]?.requiredStone||suggestedMegaStone(d,megaChoiceFor(d).find(x=>x.slug===d.megaForm?.slug)||d.megaForm))}" placeholder="e.g. Charizardite Z"><span class="hint">Set by the GM for this assigned Mega. Custom stone names are supported.</span></label>
  <label class="field">Held item<input name="heldItem" maxlength="80" value="${esc(d.heldItem||'')}"></label>
  ${existing?'<div class="actions"><button type="button" class="btn small" data-act="equip-mega-stone">Equip required Mega Stone</button></div>':''}
- <div class="field full"><span class="eyebrow">Four move slots</span><p class="hint">Only moves in this Pokémon's official form learnset or explicitly eligible custom moves are available. Mega-exclusive moves require the corresponding assigned Mega form.</p><p class="hint" id="move-legality-feedback" aria-live="polite"></p>
+ <div class="field full"><span class="eyebrow">Four move slots</span><p class="hint">Moves must belong to this exact form's compatible game movepool, including its TMs, or be eligible custom moves. Sources appear in suggestions. Mega-exclusive moves still need their assigned Mega form.</p><p class="hint" id="move-legality-feedback" aria-live="polite"></p>
  <div class="move-fields">${Array.from({length:4},(_,i)=>`<label class="field">Move ${i+1}<input name="move${i+1}" maxlength="48" list="known-moves" placeholder="Search or type a move" value="${esc((d.moves||[])[i]||'')}"></label>`).join('')}</div>
- <datalist id="known-moves">${moveOptions(d,d.megaForm?.slug||'').map(name=>`<option value="${esc(name)}"></option>`).join('')}</datalist>
+ <datalist id="known-moves">${moveOptions(d,d.megaForm?.slug||'').map(name=>`<option value="${esc(name)}" label="${esc(officialMoveSource(d,name)||'Custom')}"></option>`).join('')}</datalist>
  <div class="actions"><button type="button" class="btn small" data-act="define-move">+ Define custom move</button><button type="button" class="btn small" data-act="define-ability">+ Define custom ability</button></div></div>
  <label class="field full">Location obtained / history<input name="origin" maxlength="150" value="${esc(d.origin||'')}"></label>
  <label class="field full">Shared notes (visible to Trainer)<textarea name="notes" maxlength="1000">${esc(d.notes||'')}</textarea></label>
@@ -855,7 +860,7 @@ function refreshMoveOptions(){
  if(!form||!mon)return;
  const megaSlug=String(form.elements.megaSlug?.value||'');
  const select=document.getElementById('known-moves');
- if(select)select.innerHTML=moveOptions(mon,megaSlug).map(name=>`<option value="${esc(name)}"></option>`).join('');
+ if(select)select.innerHTML=moveOptions(mon,megaSlug).map(name=>`<option value="${esc(name)}" label="${esc(officialMoveSource(mon,name)||'Custom')}"></option>`).join('');
  const chosen=Array.from({length:4},(_,i)=>cap(form.elements['move'+(i+1)]?.value,48)).filter(Boolean);
  const invalid=chosen.filter(name=>!legalMove(name,mon,customMoves,megaSlug));
  const hint=document.getElementById('move-legality-feedback');
@@ -1209,7 +1214,7 @@ root.addEventListener('click',async e=>{
   if(action==='edit'&&GM_SITE){
    editingId=b.dataset.id;draft={...pokemon.find(x=>x.id===editingId)};
    if(draft.source==='official'){
-     try {const official=await fetchOfficial(draft.speciesKey);draft.knownMoves=official.knownMoves;draft.abilities=official.abilities;draft.parentSpeciesKey=official.parentSpeciesKey;await loadSpeciesForms(official)}
+     try {const official=await fetchOfficial(draft.speciesKey);draft.knownMoves=official.knownMoves;draft.moveMethods=official.moveMethods;draft.learnsetVersionGroup=official.learnsetVersionGroup;draft.tmMoves=official.tmMoves;draft.abilities=official.abilities;draft.parentSpeciesKey=official.parentSpeciesKey;await loadSpeciesForms(official)}
      catch(e){console.warn('Official form/learnset suggestions are temporarily unavailable:',e.message)}
    }else availableForms=[];
    view='assign';chosen='';render();
