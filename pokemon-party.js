@@ -12,7 +12,7 @@ import {SANTARA_CATALOG_GROUPS,santaraCatalogEntries} from './santara-catalog.js
 import {artworkEntries,artworkFor,artworkPropagation} from './pokemon-artwork.js';
 import {customContentLibraryUI} from './pokemon-custom-library.js';
 import {assignmentProblems} from './pokemon-assignment-check.js';
-import {discoverPokemonForms,isGimmickVariety,readableForm,customMoveScope,validCustomMoveScope,legalMove,eligibleMoveNames,speciesKey,moveKey} from './pokemon-forms-learnsets.js?v=regional-moves-20261108-2';
+import {pokemonLookupKey,fetchPokeApi,discoverPokemonForms,isGimmickVariety,readableForm,customMoveScope,validCustomMoveScope,legalMove,eligibleMoveNames,speciesKey,moveKey} from './pokemon-forms-learnsets.js?v=lookup-recovery-20261109-1';
 
 const GM_UID='ctBLgrVgkLOzUJYTyYgU9IwejYx1';
 const GM_SITE=window.SANTARA_POKEMON_EDITION==='gm';
@@ -618,21 +618,25 @@ function connect(){
 }
 async function fetchOfficial(name){
  const key=pokemonLookupKey(cap(name,90));
+ if(!key)throw Error('Enter a Pokémon species, e.g. Growlithe or Growlithe (Hisuian).');
  if(!/^[a-z0-9-]+$/.test(key)||isGimmickVariety(key))
   throw Error('Enter a regular Pokémon or permanent form. Mega and other battle transformations are handled separately.');
  if(!apiCache.has(key))apiCache.set(key,(async()=>{
-  let result=await fetch('https://pokeapi.co/api/v2/pokemon/'+encodeURIComponent(key));
+  let result=await fetchPokeApi('https://pokeapi.co/api/v2/pokemon/'+encodeURIComponent(key));
   // PokéAPI has default forms like Aegislash-Shield rather than pokemon/aegislash.
   if(!result.ok&&result.status===404){
-   const speciesResponse=await fetch('https://pokeapi.co/api/v2/pokemon-species/'+encodeURIComponent(key));
+   const speciesResponse=await fetchPokeApi('https://pokeapi.co/api/v2/pokemon-species/'+encodeURIComponent(key));
    if(speciesResponse.ok){
     const species=await speciesResponse.json();
     const selected=species.varieties?.find(v=>v.is_default)?.pokemon?.name;
     if(selected&&!isGimmickVariety(selected))
-     result=await fetch('https://pokeapi.co/api/v2/pokemon/'+encodeURIComponent(selected));
+     result=await fetchPokeApi('https://pokeapi.co/api/v2/pokemon/'+encodeURIComponent(selected));
    }
   }
-  if(!result.ok)throw Error('PokéAPI could not find '+key);
+  if(!result.ok){
+    if(result.status===404)throw Error('No Pokémon found for "'+name+'". Check the spelling, or try Growlithe (Hisuian).');
+    throw Error('PokéAPI could not load "'+name+'" (HTTP '+result.status+'). Please try again.');
+   }
   const p=await result.json(),found=fromPokeApi(p);
   if(found.parentSpeciesKey!==found.speciesKey)
    found.speciesName=readableForm(found.speciesKey,found.parentSpeciesKey);
@@ -664,7 +668,7 @@ async function lookupMoves(names){
    }
    if(moveCache.has(key))return;
    try {
-     const r=await fetch('https://pokeapi.co/api/v2/move/'+encodeURIComponent(key));
+     const r=await fetchPokeApi('https://pokeapi.co/api/v2/move/'+encodeURIComponent(key));
      if(r.ok){const x=await r.json();moveCache.set(key,{power:x.power,type:x.type?.name,category:x.damage_class?.name,accuracy:x.accuracy});}
      else moveCache.set(key,null);
    }catch{moveCache.set(key,null)}
@@ -1139,7 +1143,7 @@ root.addEventListener('click',async e=>{
   }
   if(action==='new'&&GM_SITE){view='assign';draft=null;activeRequestId='';editingId='';chosen='';render()}
   if(action==='request'&&!GM_SITE){requestDraft=null;view='request';chosen='';render()}
-  if(action==='request-lookup'&&!GM_SITE){const f=document.getElementById('request-form');const species=await findSpecies(f.elements.species.value);requestDraft={...species,level:Number(f.elements.level.value)||5,nickname:f.elements.nickname.value,notes:f.elements.notes.value};say('Species stats loaded. Submit your request to the GM.');render()}
+  if(action==='request-lookup'&&!GM_SITE){busy=true;b.disabled=true;say('Fetching species stats…');const f=document.getElementById('request-form');const species=await findSpecies(f.elements.species.value);requestDraft={...species,level:Number(f.elements.level.value)||5,nickname:f.elements.nickname.value,notes:f.elements.notes.value};say('Species stats loaded. Submit your request to the GM.');render()}
   if(action==='review'&&GM_SITE){say('Loading requested species…');await reviewRequest(b.dataset.id)}
   if(action==='reject'&&GM_SITE)await rejectRequest(b.dataset.id)
   if(action==='custom-library'&&GM_SITE){view='custom-library';chosen='';originLibrary=false;render()}
@@ -1216,7 +1220,7 @@ root.addEventListener('click',async e=>{
   }
   if(action==='heal'){const form=document.getElementById('track-form'),m=pokemon.find(x=>x.id===chosen);if(form&&m)form.elements.currentHp.value=m.maxHp}
   if(action==='google'){await signInWithPopup(auth,new GoogleAuthProvider())}
- }catch(err){fail(err)}finally{busy=false}
+ }catch(err){fail(err)}finally{busy=false;if((action==='lookup'||action==='request-lookup')&&b.isConnected)b.disabled=false}
 });
 root.addEventListener('input',e=>{
  if(e.target.id==='artwork-search'&&view==='artwork-library'){
