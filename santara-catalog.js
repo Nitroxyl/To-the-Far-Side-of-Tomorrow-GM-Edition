@@ -11,8 +11,19 @@ const mega=(name,baseSpeciesKey,baseStats,types,ability)=>entry('santara_mega_fo
  baseSpeciesKey,baseStats,types,ability,spriteUrl:'',spriteData:'',source:'custom'
 });
 const ability=(name,description)=>entry('santara_custom_abilities',name,{description});
+// Only listed species/forms may select custom signatures; legacy imported
+// definitions get the same restrictions through pokemon-forms-learnsets.js.
+const scopes={
+ 'Infernal Sweep':{allowedSpeciesKeys:['charizard'],requiredMegaSlug:'mega-charizard-z'},
+ 'Schradebreaker':{allowedSpeciesKeys:['charizard'],requiredMegaSlug:'mega-charizard-z'},
+ "Schrade's End":{allowedSpeciesKeys:['charizard'],requiredMegaSlug:'mega-charizard-z'},
+ 'Tar Rend':{allowedSpeciesKeys:['custom:spinotroleum'],requiredMegaSlug:''},
+ 'Riptide Bite':{allowedSpeciesKeys:['custom:mosasord'],requiredMegaSlug:''},
+ 'Faultline Gore':{allowedSpeciesKeys:['custom:carnotremor'],requiredMegaSlug:''}
+};
 const move=(name,type,category,power,accuracy,description,dice='')=>entry('santara_custom_moves',name,{
- type,category,power,accuracy,description,dice
+ type,category,power,accuracy,description,dice,
+ ...(scopes[name]||{allowedSpeciesKeys:[],requiredMegaSlug:''})
 });
 
 // Confirmed fossil design discussions, October 2026.
