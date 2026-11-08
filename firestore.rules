@@ -399,6 +399,15 @@ service cloud.firestore {
         && request.resource.data.heldItem.size() <= 80
         && request.resource.data.updatedAt == request.time;
     }
+    // GM TM teaching changes only moves and updatedAt, including legacy records.
+    function gmTmMoveUpdate() {
+      return gm()
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && request.resource.data.speciesKey == resource.data.speciesKey
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['moves','updatedAt'])
+        && shortList(request.resource.data.moves,4)
+        && request.resource.data.updatedAt == request.time;
+    }
     match /santara_pokemon/{pokemonId} {
       allow get, list: if gm() || (approved() && resource.data.ownerUid == request.auth.uid);
       allow create: if gm() && pokemonValid(request.resource.data);
@@ -407,6 +416,7 @@ service cloud.firestore {
         || gmLegacySlotUpdate()
         || gmLegacyMegaUpdate()
         || gmLegacyHeldItemUpdate()
+        || gmTmMoveUpdate()
         || (approved() && resource.data.ownerUid == request.auth.uid
           && request.resource.data.ownerUid == resource.data.ownerUid
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
@@ -446,6 +456,55 @@ service cloud.firestore {
         && request.resource.data.updatedAt == request.time;
     }
 
+
+    // GM-owned Trainer Bags. Trainers can read only their own bag.
+    match /santara_trainer_bags/{uid} {
+      allow get, list: if gm() || (approved() && request.auth.uid == uid);
+      allow create, update: if gm()
+        && request.resource.data.keys().hasOnly(['ownerUid','items','updatedAt'])
+        && request.resource.data.keys().hasAll(['ownerUid','items','updatedAt'])
+        && request.resource.data.ownerUid == uid
+        && request.resource.data.items is map
+        && request.resource.data.items.size() <= 120
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if gm();
+    }
+
+    // Players can request a TM; only a GM may resolve teaching.
+    match /santara_tm_requests/{requestId} {
+      allow get, list: if gm() || (approved() && resource.data.ownerUid == request.auth.uid);
+      allow create: if member()
+        && request.resource.data.keys().hasOnly([
+          'ownerUid','pokemonId','itemId','moveName','forgetMove',
+          'status','createdAt','resolvedAt'
+        ])
+        && request.resource.data.keys().hasAll([
+          'ownerUid','pokemonId','itemId','moveName','forgetMove',
+          'status','createdAt','resolvedAt'
+        ])
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.pokemonId is string
+        && request.resource.data.pokemonId.size() >= 1
+        && request.resource.data.pokemonId.size() <= 160
+        && request.resource.data.itemId is string
+        && request.resource.data.itemId.matches('^[a-z0-9-]{2,95}$')
+        && request.resource.data.moveName is string
+        && request.resource.data.moveName.size() >= 1
+        && request.resource.data.moveName.size() <= 48
+        && request.resource.data.forgetMove is string
+        && request.resource.data.forgetMove.size() <= 48
+        && request.resource.data.status == 'pending'
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.resolvedAt == null
+        && exists(/databases/$(database)/documents/santara_pokemon/$(request.resource.data.pokemonId))
+        && get(/databases/$(database)/documents/santara_pokemon/$(request.resource.data.pokemonId)).data.ownerUid == request.auth.uid;
+      allow update: if gm()
+        && resource.data.status == 'pending'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','resolvedAt'])
+        && request.resource.data.status in ['approved','rejected']
+        && request.resource.data.resolvedAt == request.time;
+      allow delete: if gm();
+    }
 
     // Trainer-submitted Pokémon requests. A player can propose a Pokémon,
     // but only the GM can resolve a request and assign the real Pokémon.
