@@ -499,9 +499,10 @@ service cloud.firestore {
     match /santara_custom_abilities/{slug} {
       allow get, list: if member();
       allow create, update: if gm()
-        && request.resource.data.keys().hasOnly(['slug','name','description','updatedAt'])
+        && request.resource.data.keys().hasOnly(['slug','name','description','allowedSpeciesKeys','updatedAt'])
         && request.resource.data.keys().hasAll(['slug','name','description','updatedAt'])
         && catalogBase(request.resource.data)
+        && (!('allowedSpeciesKeys' in request.resource.data) || (request.resource.data.allowedSpeciesKeys is list && request.resource.data.allowedSpeciesKeys.size() <= 30))
         && request.resource.data.slug == slug;
       allow delete: if gm();
     }
