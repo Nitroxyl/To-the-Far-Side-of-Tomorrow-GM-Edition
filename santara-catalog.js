@@ -5,7 +5,7 @@ const stats=(hp,attack,defense,specialAttack,specialDefense,speed)=>({hp,attack,
 const slug=name=>name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
 const entry=(collection,name,data)=>({collection,id:slug(name),data:{slug:slug(name),name,...data}});
 const species=(name,baseStats,types,abilities)=>entry('santara_species_overrides',name,{
- baseStats,types,abilities,spriteUrl:'',spriteData:''
+ baseStats,types,abilities,knownMoves:[],spriteUrl:'',spriteData:''
 });
 const mega=(name,baseSpeciesKey,baseStats,types,ability)=>entry('santara_mega_forms',name,{
  baseSpeciesKey,baseStats,types,ability,spriteUrl:'',spriteData:'',source:'custom'
