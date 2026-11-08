@@ -505,7 +505,7 @@ service cloud.firestore {
       allow delete: if gm();
     }
     function customMoveValid(d) {
-      return d.keys().hasOnly(['slug','name','description','type','category','power','accuracy','dice','updatedAt'])
+      return d.keys().hasOnly(['slug','name','description','type','category','power','accuracy','dice','allowedSpeciesKeys','requiredMegaSlug','updatedAt'])
         && d.keys().hasAll(['slug','name','description','type','category','power','accuracy','dice','updatedAt'])
         && catalogBase(d)
         && d.type in ['normal','fire','water','electric','grass','ice','fighting','poison',
@@ -513,7 +513,11 @@ service cloud.firestore {
         && d.category in ['Physical','Special','Status']
         && (d.power == null || (d.power is int && d.power >= 0 && d.power <= 300))
         && (d.accuracy == null || (d.accuracy is int && d.accuracy >= 1 && d.accuracy <= 100))
-        && d.dice is string && d.dice.size() <= 120;
+        && d.dice is string && d.dice.size() <= 120
+        && (!('allowedSpeciesKeys' in d)
+          || (d.allowedSpeciesKeys is list && d.allowedSpeciesKeys.size() <= 30))
+        && (!('requiredMegaSlug' in d)
+          || (d.requiredMegaSlug is string && d.requiredMegaSlug.size() <= 70));
     }
     match /santara_custom_moves/{slug} {
       allow get, list: if member();
