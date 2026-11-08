@@ -1040,11 +1040,19 @@ async function saveMegaOnly(){
  // record means an old Pokémon's unknown fields and schemas cannot block it.
  const target=doc(store,'santara_pokemon_mega_assignments',mon.id);
  const payload={ownerUid:mon.ownerUid,megaForm,requiredStone,megaActive:false,updatedAt:serverTimestamp()};
+ // The Mega link rules require an existing Pokémon with the same owner and species.
+ const base=await getDoc(doc(store,'santara_pokemon',mon.id));
+ if(!base.exists())throw Error('The base Pokémon is not saved on the server yet. Save it first before linking its Mega.');
+ if(base.data().ownerUid!==mon.ownerUid)throw Error('The saved Pokémon owner differs from the Mega link owner. Reopen the Pokémon from the roster.');
+ if(megaForm&&base.data().speciesKey!==megaForm.baseSpeciesKey)
+  throw Error('The Mega belongs to a different species than the saved Pokémon. Reload the species and Mega selection.');
  try{
   await setDoc(target,payload);
  }catch(err){
   if(err?.code==='permission-denied'||/missing or insufficient permissions/i.test(err?.message||'')){
-   throw Error('Firebase denied the NEW isolated Mega assignment (santara_pokemon_mega_assignments). This is a different collection from the Pokémon record. Publish the latest GM firestore.rules that grants GM-only writes to this collection. No Pokémon data was changed. Original error: '+err.message);
+   throw Error('Firebase denied the Mega link in santara_pokemon_mega_assignments (Pokémon ID '+mon.id+
+    '). The base Pokémon exists, its owner matches, and the Mega species matches.'+
+    ' The base Pokémon remains unchanged. This is a Mega-link rule failure rather than a moves or ordinary assignment error. Firebase said: '+err.message);
   }
   throw err;
  }
@@ -1092,7 +1100,9 @@ async function saveAssign(form){
   baseStats:d.baseStats,types:d.types,abilities:d.abilities||[],spriteUrl:d.spriteUrl||'',spriteData:d.spriteData||'',
   nickname:cap(f.get('nickname'),32),level,ability:cap(f.get('ability'),48),
   maxHp,currentHp,status:existing?.status||'None',slot,heldItem:cap(f.get('heldItem'),80),moves,origin:cap(f.get('origin'),150),notes:cap(f.get('notes'),1000),
-  teraType,megaForm,megaActive:(existing?.megaForm?.slug===megaSlug&&existing?.megaActive===true)||false,
+  // The selected Mega is stored only in its independent, owner-scoped link.
+   // Do not put its snapshot through the base Pokémon validator too.
+   teraType,megaActive:false,
   teraActive:existing?.teraActive===true,zUsed:existing?.zUsed===true,
   dynamaxTurns:Math.max(0,Math.min(3,Number(existing?.dynamaxTurns)||0)),
   dynamaxUsed:existing?.dynamaxUsed===true,updatedAt:serverTimestamp()
@@ -1120,14 +1130,13 @@ async function saveAssign(form){
  const shouldSyncMega=Boolean(megaForm||(existing&&Object.prototype.hasOwnProperty.call(megaAssignments,existing.id)));
  if(shouldSyncMega){
   try{
-   await setDoc(doc(store,'santara_pokemon_mega_assignments',monRef.id),{
-    ownerUid,megaForm,requiredStone,megaActive:false,updatedAt:serverTimestamp()
-   });
+   const megaLink={ownerUid,megaForm,requiredStone,megaActive:false,updatedAt:serverTimestamp()};
+   await setDoc(doc(store,'santara_pokemon_mega_assignments',monRef.id),megaLink);
   }catch(err){
    // The original Pokémon has already been saved. Report partial success
    // rather than implying the entire assignment was rolled back.
    clearSelection();
-   throw Error('Pokémon saved, but linking its Mega form failed: '+(err?.message||String(err))+'. Open the Pokémon again and use Save Mega form only.');
+   throw Error('Pokémon saved successfully, but the separate Mega link failed: '+(err?.message||String(err))+'. The Pokémon itself is safe. Reopen it and use Save Mega form only.');
   }
  }
  say('Pokémon saved and synced to the Trainer account.');clearSelection();
