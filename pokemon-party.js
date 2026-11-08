@@ -12,6 +12,7 @@ import {SANTARA_CATALOG_GROUPS,santaraCatalogEntries} from './santara-catalog.js
 import {artworkEntries,artworkFor,artworkPropagation} from './pokemon-artwork.js';
 import {customContentLibraryUI} from './pokemon-custom-library.js';
 import {assignmentProblems} from './pokemon-assignment-check.js';
+import {discoverPokemonForms,isGimmickVariety,readableForm,customMoveScope,validCustomMoveScope,legalMove,eligibleMoveNames,speciesKey,moveKey} from './pokemon-forms-learnsets.js';
 
 const GM_UID='ctBLgrVgkLOzUJYTyYgU9IwejYx1';
 const GM_SITE=window.SANTARA_POKEMON_EDITION==='gm';
@@ -25,12 +26,12 @@ const option=(value,label,selected)=>`<option value="${esc(value)}"${String(valu
 const opts=(values,selected)=>values.map(v=>option(v,v,selected)).join('');
 const statuses=['None','Burned','Poisoned','Badly poisoned','Paralyzed','Asleep','Frozen'];
 const STAT_NAMES=['HP','Atk','Def','SpA','SpD','Spe'];
-const apiCache=new Map(),moveCache=new Map();
+const apiCache=new Map(),moveCache=new Map(),speciesFormCache=new Map();
 let app,auth,store,user=null,allowed=false,stopAccess=null,stopPokemon=null,stopApprovals=null,stopCustoms=null,stopRequests=null,stopCards=null,stopMoves=null,stopAbilities=null,stopGimmicks=null,stopMegaForms=null,stopRole=null,stopMegaAssignments=null;
 let editingCustom=null,editingCatalog=null,originLibrary=false,libraryKind='all',librarySearch='';
 let roleAllowed=false,accessApproved=false;
 const officialMegaCache=new Map(),officialMegaPending=new Map();
-let rawPokemon=[],megaAssignments={},pokemon=[],trainers=[],trainerCards=[],customs=[],customMoves=[],customAbilities=[],requests=[],megaForms=[],trainerUnlocks={},playerUnlocks=initialUnlocks(),editingMega=null,megaImported=false,battleRules=null,stopRules=null,view='party',chosen='',ownerFilter='',editingId='',draft=null,requestDraft=null,activeRequestId='',returnToAssign=false,collectionReady=false,collectionError='',moveInfo={},busy=false,artworkKind='all',artworkQuery='',artworkSelected=null;
+let rawPokemon=[],megaAssignments={},pokemon=[],trainers=[],trainerCards=[],customs=[],customMoves=[],customAbilities=[],requests=[],megaForms=[],trainerUnlocks={},playerUnlocks=initialUnlocks(),editingMega=null,megaImported=false,battleRules=null,stopRules=null,view='party',chosen='',ownerFilter='',editingId='',draft=null,requestDraft=null,activeRequestId='',returnToAssign=false,collectionReady=false,collectionError='',moveInfo={},availableForms=[],formDiscoveryError='',busy=false,artworkKind='all',artworkQuery='',artworkSelected=null;
 
 document.getElementById('edition-name').textContent=GM_SITE?'GM CONSOLE / TEAM MANAGEMENT':'POKÉDEX / TRAINER COLLECTION';
 document.getElementById('page-title').innerHTML=GM_SITE?'Trainer Pokémon<span class="accent">.</span>':'My Pokémon<span class="accent">.</span>';
@@ -75,14 +76,61 @@ function customAbilityByName(name){
 function registrationMoves(fd){
  const names=Array.from({length:4},(_,i)=>cap(fd.get('move'+(i+1)),48)).filter(Boolean);
  if(names.some(m=>m.includes(',')))throw Error('Enter only one move in each slot.');
- if(new Set(names.map(m=>m.toLowerCase())).size!==names.length)throw Error('A Pokémon cannot know the same move twice.');
+ if(new Set(names.map(moveKey)).size!==names.length)throw Error('A Pokémon cannot know the same move twice.');
  return names;
 }
-function moveOptions(mon){
- const names=[...(mon?.knownMoves||[]).map(n=>String(n).replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase())),...customMoves.map(m=>m.name)];
- const used=new Set();
- return names.filter(name=>{const key=String(name).toLowerCase();if(!key||used.has(key))return false;used.add(key);return true})
-   .sort((a,b)=>String(a).localeCompare(String(b))).slice(0,500);
+function moveOptions(mon,megaSlug=''){
+ return eligibleMoveNames(mon,customMoves,megaSlug);
+}
+function formPicker(current){
+ if(current?.source!=='official'||!availableForms.length)return '';
+ const rootKey=current.parentSpeciesKey||current.speciesKey;
+ const entries=availableForms.some(f=>f.id===current.speciesKey)?availableForms:
+  [{id:current.speciesKey,label:readableForm(current.speciesKey,rootKey)},...availableForms];
+ return `<label class="field full">Regional / alternate form
+ <select name="speciesForm" id="species-form-choice">${entries.map(x=>option(x.id,x.label,current.speciesKey)).join('')}</select>
+ <span class="hint">Choose Hisuian, Alolan, Galarian, Paldean or other permanent variants. Mega, Gigantamax and temporary battle forms remain separate.</span></label>`;
+}
+async function loadSpeciesForms(mon){
+ availableForms=[];formDiscoveryError='';
+ if(!mon||mon.source!=='official')return;
+ const rootKey=mon.parentSpeciesKey||mon.speciesKey;
+ if(!speciesFormCache.has(rootKey)){
+  speciesFormCache.set(rootKey,discoverPokemonForms(rootKey).catch(err=>{
+   speciesFormCache.delete(rootKey);throw err;
+  }));
+ }
+ try{
+  availableForms=await speciesFormCache.get(rootKey);
+ }catch(error){
+  formDiscoveryError=error.message||String(error);
+  availableForms=[{id:mon.speciesKey,label:readableForm(mon.speciesKey,rootKey)}];
+ }
+}
+async function changeSpeciesForm(key,request=false){
+ const target=request?requestDraft:(draft||pokemon.find(m=>m.id===editingId));
+ if(!target||target.source!=='official')throw Error('Fetch an official Pokémon before selecting a regional form.');
+ const id=speciesKey(key);
+ if(!availableForms.some(x=>x.id===id))throw Error('This form is not a selectable regional/alternate Pokémon.');
+ if(target.speciesKey===id)return;
+ if(!request)copyAssignmentDraft();
+ const previous=request?requestDraft:draft;
+ const next=await fetchOfficial(id);
+ if((next.parentSpeciesKey||next.speciesKey)!==(previous.parentSpeciesKey||previous.speciesKey)){
+  throw Error('Choose a variety belonging to the same Pokémon species.');
+ }
+ if(request){
+  requestDraft={...previous,...next};
+ }else{
+  const keep=(previous.moves||[]).filter(m=>legalMove(m,next,customMoves,''));
+  const level=Number(previous.level)||5;
+  const maxHp=maxHpV4Baseline(next.baseStats,level);
+  draft={...previous,...next,level,maxHp,currentHp:maxHp,moves:keep,
+   ability:next.abilities?.includes(previous.ability)?previous.ability:next.abilities?.[0]||'',
+   megaForm:null,megaActive:false};
+ }
+ say(next.speciesName+' form selected. Stats, abilities and learnset updated.');
+ render();
 }
 function copyAssignmentDraft(){
  const form=document.getElementById('assign-form');if(!form)return;
@@ -559,18 +607,22 @@ function connect(){
 }
 async function fetchOfficial(name){
  const key=cap(name,70).toLowerCase().replace(/\s+/g,'-');
- if(!/^[a-z0-9-]+$/.test(key))throw Error('Enter a valid Pokémon name, such as riolu or charizard.');
+ if(!/^[a-z0-9-]+$/.test(key)||isGimmickVariety(key))throw Error('Enter a regular Pokémon or permanent form. Mega and other battle transformations are handled separately.');
  if(!apiCache.has(key))apiCache.set(key,fetch('https://pokeapi.co/api/v2/pokemon/'+encodeURIComponent(key)).then(r=>{if(!r.ok)throw Error('PokéAPI could not find '+key);return r.json()}).then(fromPokeApi).catch(e=>{apiCache.delete(key);throw e}));
  return apiCache.get(key);
 }
 function customFrom(x){
  if(!x||!validStats(x.baseStats))throw Error('Custom species has invalid stats.');
- return {speciesKey:'custom:'+x.slug,speciesName:x.name,baseStats:x.baseStats,types:x.types,abilities:x.abilities,knownMoves:customMoves.map(m=>m.name),spriteUrl:x.spriteUrl||'',spriteData:x.spriteData||'',source:'custom'};
+ return {speciesKey:'custom:'+x.slug,speciesName:x.name,baseStats:x.baseStats,types:x.types,abilities:x.abilities,knownMoves:[],spriteUrl:x.spriteUrl||'',spriteData:x.spriteData||'',source:'custom'};
 }
 async function findSpecies(value){
  const q=cap(value,90);
  const found=customs.find(x=>q.toLowerCase()===x.name.toLowerCase()||q.toLowerCase()===('custom:'+x.slug));
- return found?customFrom(found):fetchOfficial(q);
+ const species=found?customFrom(found):await fetchOfficial(q);
+ await loadSpeciesForms(species);
+ if(species.source==='official'&&!availableForms.some(x=>x.id===species.speciesKey))
+  throw Error('That Pokémon form is battle-only. Use the appropriate transformation system instead.');
+ return species;
 }
 async function lookupMoves(names){
  const list=names.filter(Boolean).slice(0,4);
