@@ -73,3 +73,18 @@ test('GM-only Mega attachment is a narrow update that preserves legacy records',
  assert.ok(app.includes('async function saveMegaOnly()'));
  assert.ok(app.includes("await updateDoc(doc(store,'santara_pokemon',mon.id),payload)"));
 });
+
+test('GM writes the base Pokémon separately from its Mega snapshot',()=>{
+ const app=readFileSync(new URL('../pokemon-party.js',import.meta.url),'utf8');
+ assert.match(app,/teraType,megaActive:false,/);
+ assert.doesNotMatch(app,/teraType,megaForm,megaActive:/);
+ assert.match(app,/await setDoc\(doc\(store,'santara_pokemon_mega_assignments',monRef.id\),megaLink\)/);
+ assert.match(app,/const base=await getDoc\(doc\(store,'santara_pokemon',mon.id\)\)/);
+ assert.match(app,/base.data\(\).speciesKey!==megaForm.baseSpeciesKey/);
+});
+test('Null inline Mega does not change valid regular Pokémon assignment shape',()=>{
+ const normal=clone(charizard);
+ normal.megaForm=null;
+ normal.megaActive=false;
+ assert.deepEqual(assignmentProblems(normal),[]);
+});
