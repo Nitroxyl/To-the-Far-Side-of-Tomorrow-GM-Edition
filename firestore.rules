@@ -189,7 +189,7 @@ service cloud.firestore {
     }
     function customValid(d) {
       return d.keys().hasOnly([
-          'slug','name','baseStats','types','abilities','spriteUrl','spriteData','updatedAt'
+          'slug','name','baseStats','types','abilities','knownMoves','spriteUrl','spriteData','updatedAt'
         ])
         && d.keys().hasAll([
           'slug','name','baseStats','types','abilities','spriteUrl','spriteData','updatedAt'
@@ -199,6 +199,7 @@ service cloud.firestore {
         && statsValid(d.baseStats)
         && shortList(d.types,2) && d.types.size() > 0
         && shortList(d.abilities,3)
+        && (!('knownMoves' in d) || (d.knownMoves is list && d.knownMoves.size() <= 120))
         && urlValid(d.spriteUrl) && imageValid(d.spriteData)
         && d.updatedAt == request.time;
     }
