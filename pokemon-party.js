@@ -12,7 +12,7 @@ import {SANTARA_CATALOG_GROUPS,santaraCatalogEntries} from './santara-catalog.js
 import {artworkEntries,artworkFor,artworkPropagation} from './pokemon-artwork.js';
 import {customContentLibraryUI} from './pokemon-custom-library.js';
 import {assignmentProblems} from './pokemon-assignment-check.js';
-import {officialMoveCatalog,officialMoveSource,pokemonLookupKey,fetchPokeApi,discoverPokemonForms,isGimmickVariety,readableForm,customMoveScope,validCustomMoveScope,legalMove,eligibleMoveNames,speciesKey,moveKey} from './pokemon-forms-learnsets.js?v=form-tms-20261109-1';
+import {customAbilityScope,validCustomAbilityScope,eligibleAbilityNames,legalAbility,officialMoveCatalog,officialMoveSource,pokemonLookupKey,fetchPokeApi,discoverPokemonForms,isGimmickVariety,readableForm,customMoveScope,validCustomMoveScope,legalMove,eligibleMoveNames,speciesKey,moveKey} from './pokemon-forms-learnsets.js?v=ability-scopes-20261109-1';
 
 const GM_UID='ctBLgrVgkLOzUJYTyYgU9IwejYx1';
 const GM_SITE=window.SANTARA_POKEMON_EDITION==='gm';
@@ -172,7 +172,8 @@ function catalogForm(kind){
  <label class="field full">Required assigned Mega form (optional)
  <input name="requiredMegaSlug" maxlength="70" placeholder="e.g. mega-charizard-z" value="${esc(customMoveScope(chosen).requiredMegaSlug)}">
  <span class="hint">Exclusive Mega moves are suggested only when this exact Mega form is assigned. Infernal Sweep defaults to Mega Charizard Z.</span></label>`:''}
- <label class="field full">${isMove?'Move effects, targeting and range':'Ability effect'}<textarea name="description" minlength="1" maxlength="1000" required placeholder="Describe how the ${isMove?'move':'ability'} works in our tabletop rules.">${esc(chosen?.description||'')}</textarea></label>
+ ${!isMove?`<label class='field full'>Eligible Pokémon species / form IDs (comma-separated)<textarea name='allowedSpeciesKeys' maxlength='2400' placeholder='e.g. growlithe-hisui, custom:spinotroleum'>${esc(customAbilityScope(editingCatalog).allowedSpeciesKeys.join(', '))}</textarea><span class='hint'>Only eligible forms can select this custom ability. Leave blank for abilities applied by a Mega form, or declare a native ability in the custom species template. An explicit * permits every Pokémon.</span></label>`:''}
+  <label class="field full">${isMove?'Move effects, targeting and range':'Ability effect'}<textarea name="description" minlength="1" maxlength="1000" required placeholder="Describe how the ${isMove?'move':'ability'} works in our tabletop rules.">${esc(chosen?.description||'')}</textarea></label>
  <p class="hint full">Entering an existing custom name replaces that definition; it will also update the description shown on Pokémon sheets using it.</p>
  <div class="actions"><button class="btn primary" type="submit">Save ${isMove?'custom move':'custom ability'}</button></div>
  </form></section>`;
@@ -201,6 +202,12 @@ async function saveCatalog(form,isMove){
    throw Error('Use valid species/form IDs (up to 30), and a matching Mega form ID when required. Do not use * for a Mega-exclusive move.');
   if(new Set(allowedSpeciesKeys).size!==allowedSpeciesKeys.length)throw Error('Remove duplicate species IDs.');
   record={...record,type,category,power,accuracy,dice:cap(fd.get('dice'),120),allowedSpeciesKeys,requiredMegaSlug};
+ }
+ if(!isMove){
+  const allowedSpeciesKeys=String(fd.get('allowedSpeciesKeys')||'').split(/[,\n]+/).map(speciesKey).filter(Boolean);
+  if(!validCustomAbilityScope({allowedSpeciesKeys}))throw Error('Enter no more than 30 valid species/form IDs for this ability.');
+  if(new Set(allowedSpeciesKeys).size!==allowedSpeciesKeys.length)throw Error('Remove duplicate eligible species/form IDs.');
+  record={...record,allowedSpeciesKeys};
  }
  await setDoc(doc(store,coll,slug),record);
  const list=isMove?customMoves:customAbilities;
@@ -832,7 +839,7 @@ function gmForm(){
  <label class="field">Assign to Trainer<select name="ownerUid" required>${managedTrainers().map(t=>option(t.uid,trainerLabel(t.uid)+(t.authorizedRequester?' · authorized requester':''),d.ownerUid||ownerFilter)).join('')}</select></label>
  <label class="field">Level<input name="level" type="number" min="1" max="100" required value="${level}"></label>
  <label class="field">Nickname<input name="nickname" maxlength="32" value="${esc(d.nickname||'')}"></label>
- <label class="field">Ability<input name="ability" list="abilities" maxlength="48" value="${esc(d.ability||d.abilities?.[0]||'')}"><datalist id="abilities">${[...(d.abilities||[]),...customAbilities.map(a=>a.name)].map(a=>`<option value="${esc(a)}"></option>`).join('')}</datalist></label>
+ <label class="field">Ability<input name="ability" list="abilities" maxlength="48" value="${esc(d.ability||d.abilities?.[0]||'')}"><datalist id="abilities">${eligibleAbilityNames(d,customAbilities).map(a=>`<option value="${esc(a)}"></option>`).join('')}</datalist></label>
  <label class="field">Maximum HP<input name="maxHp" data-generated="${defaultHp}" type="number" min="1" max="3000" required value="${d.maxHp||defaultHp}"></label>
  <label class="field">Current HP<input name="currentHp" type="number" min="0" max="3000" required value="${d.currentHp??d.maxHp??defaultHp}"></label>
  <label class="field">Party slot<select name="slot">${Array.from({length:7},(_,i)=>option(i,i===0?'Storage':`Slot ${i}`,d.slot??0)).join('')}</select></label>
@@ -1056,6 +1063,11 @@ async function saveAssign(form){
  if(speciesKey(f.get('species'))!==speciesKey(d.speciesName))
   throw Error('Species name changed. Click Fetch stats again or choose a listed regional form before saving.');
  const official=d.source==='official'?await fetchOfficial(d.speciesKey):null;
+  const selectedAbility=cap(f.get('ability'),48);
+  const template=d.source==='custom'?customs.find(x=>'custom:'+x.slug===d.speciesKey):null;
+  const abilityMon={...d,abilities:official?.abilities||template?.abilities||d.abilities||[]};
+  if(selectedAbility&&!legalAbility(selectedAbility,abilityMon,customAbilities))
+   throw Error('Ability "'+selectedAbility+'" is not available to '+d.speciesName+'. Choose a native ability or allow this exact species/form in its custom ability definition.');
  const validated={...d,knownMoves:official?.knownMoves||[]};
  const selectedForMoves=String(f.get('megaSlug')||'');
  const illegal=moves.filter(name=>!legalMove(name,validated,customMoves,selectedForMoves));
@@ -1281,6 +1293,8 @@ root.addEventListener('change',e=>{
   const record=(view==='custom-move'?customMoves:customAbilities).find(x=>x.name.toLowerCase()===e.target.value.trim().toLowerCase());
   const form=e.target.closest('form');
   if(record&&form){
+   if(view==='custom-ability'&&form.elements.allowedSpeciesKeys)
+    form.elements.allowedSpeciesKeys.value=customAbilityScope(record).allowedSpeciesKeys.join(', ');
    for(const key of ['description','type','category','power','accuracy','dice']){
     const field=form.elements[key];if(field)field.value=record[key]??'';
    }
