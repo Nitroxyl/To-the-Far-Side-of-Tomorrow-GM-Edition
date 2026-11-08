@@ -624,7 +624,7 @@ async function fetchOfficial(name){
 }
 function customFrom(x){
  if(!x||!validStats(x.baseStats))throw Error('Custom species has invalid stats.');
- return {speciesKey:'custom:'+x.slug,speciesName:x.name,baseStats:x.baseStats,types:x.types,abilities:x.abilities,knownMoves:[],spriteUrl:x.spriteUrl||'',spriteData:x.spriteData||'',source:'custom'};
+ return {speciesKey:'custom:'+x.slug,speciesName:x.name,baseStats:x.baseStats,types:x.types,abilities:x.abilities,knownMoves:Array.isArray(x.knownMoves)?x.knownMoves:[],spriteUrl:x.spriteUrl||'',spriteData:x.spriteData||'',source:'custom'};
 }
 async function findSpecies(value){
  const q=cap(value,90);
@@ -877,6 +877,9 @@ function customForm(){
  <label class="field">Types (comma-separated)<input required name="types" maxlength="70" placeholder="Fire, Dragon" value="${esc((saved.types||[]).join(', '))}"></label>
  <div class="field full"><span class="eyebrow">Available abilities</span><div class="move-fields">${Array.from({length:3},(_,i)=>`<label class="field">Ability ${i+1}<input name="speciesAbility${i+1}" list="custom-species-abilities" maxlength="48" placeholder="Official or custom ability" value="${esc((saved.abilities||[])[i]||'')}"></label>`).join('')}</div>
  <datalist id="custom-species-abilities">${customAbilities.map(a=>`<option value="${esc(a.name)}"></option>`).join('')}</datalist><span class="hint">Define ability effects using the Custom Ability editor on the GM Pokémon home screen.</span></div>
+ <label class="field full">Official moves this custom species may learn (comma/newline-separated)
+ <textarea name="knownMoves" maxlength="4000" placeholder="e.g. Tackle, Protect, Water Pulse">${esc((saved.knownMoves||[]).join(', '))}</textarea>
+ <span class="hint">Custom-exclusive moves are granted using their own Eligible Pokémon fields. This list is for ordinary moves the species can learn.</span></label>
  ${statInputs(saved.baseStats)}
  <label class="field full">Artwork URL (HTTPS, optional)<input name="spriteUrl" type="url" placeholder="https://…" value="${esc(saved.spriteUrl||'')}"></label>
  <label class="field full">Or upload artwork (PNG/JPG/WebP, compressed to small WebP)<input name="upload" type="file" accept="image/png,image/jpeg,image/webp"></label>
@@ -934,13 +937,16 @@ async function saveCustom(form){
  const types=cap(f.get('types'),70).split(',').map(x=>x.trim().toLowerCase()).filter(Boolean).slice(0,2);
  const abilities=Array.from({length:3},(_,i)=>cap(f.get('speciesAbility'+(i+1)),48)).filter(Boolean);
  if(new Set(abilities.map(a=>a.toLowerCase())).size!==abilities.length)throw Error('A species cannot list the same ability twice.');
+ const knownMoves=String(f.get('knownMoves')||'').split(/[,\n]+/).map(x=>x.trim()).filter(Boolean);
+ if(knownMoves.length>120||knownMoves.some(x=>x.length>48))throw Error('Define at most 120 ordinary moves, each under 48 characters.');
+ if(new Set(knownMoves.map(moveKey)).size!==knownMoves.length)throw Error('Remove duplicate species learnset entries.');
  if(!types.length)throw Error('At least one type is required.');
  const url=cap(f.get('spriteUrl'),400);
  if(url&&!safeUrl(url))throw Error('Artwork links must use HTTPS.');
  const spriteData=f.get('upload')?.size?await imgToWebp(f.get('upload')):(editingCustom?.spriteData||'');
  if(editingCustom?.slug && editingCustom.slug!==slug)throw Error('To rename this species, create a new definition.');
  if(customs.some(x=>x.slug===slug)&&!editingCustom&&!confirm('Replace this species definition? Existing Pokémon keep their saved stats.'))return;
- await setDoc(doc(store,'santara_species_overrides',slug),{slug,name,baseStats,types,abilities,spriteUrl:url,spriteData,updatedAt:serverTimestamp()});
+ await setDoc(doc(store,'santara_species_overrides',slug),{slug,name,baseStats,types,abilities,knownMoves,spriteUrl:url,spriteData,updatedAt:serverTimestamp()});
  say(name+' saved to the custom species catalogue.');editingCustom=null;if(originLibrary){originLibrary=false;view='custom-library';render()}else clearSelection();
 }
 async function explainAssignmentDenial(occupying,existing,item){
