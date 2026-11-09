@@ -14,7 +14,7 @@ import {SANTARA_CATALOG_GROUPS,santaraCatalogEntries} from './santara-catalog.js
 import {artworkEntries,artworkFor,artworkPropagation} from './pokemon-artwork.js';
 import {customContentLibraryUI} from './pokemon-custom-library.js';
 import {assignmentProblems} from './pokemon-assignment-check.js';
-import {customAbilityScope,validCustomAbilityScope,eligibleAbilityNames,legalAbility,officialFamilyMoveCatalog,officialMoveCatalog,officialMoveSource,pokemonLookupKey,fetchPokeApi,discoverPokemonForms,isGimmickVariety,readableForm,customMoveScope,validCustomMoveScope,legalMove,eligibleMoveNames,speciesKey,moveKey} from './pokemon-forms-learnsets.js?v=historical-learnsets-20261109-1';
+import {customAbilityScope,validCustomAbilityScope,eligibleAbilityNames,legalAbility,officialFamilyMoveCatalog,officialMoveCatalog,officialMoveSource,pokemonLookupKey,fetchPokeApi,discoverPokemonForms,isGimmickVariety,readableForm,customMoveScope,validCustomMoveScope,legalMove,eligibleMoveNames,speciesKey,moveKey} from './pokemon-forms-learnsets.js?v=move-memory-20261109-1';
 
 const GM_UID='ctBLgrVgkLOzUJYTyYgU9IwejYx1';
 const GM_SITE=window.SANTARA_POKEMON_EDITION==='gm';
