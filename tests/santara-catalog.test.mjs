@@ -13,9 +13,9 @@ const byName=name=>entries.find(x=>x.data.name===name);
 
 test('Santara roster is complete and divided by spoiler level',()=>{
  assert.deepEqual(Object.fromEntries(Object.entries(groups).map(([k,v])=>[k,v.length])),{
-  fossils:8,megas:28,story:3,drafts:2
+  fossils:8,megas:29,story:3,drafts:2
  });
- assert.equal(entries.length,41);
+ assert.equal(entries.length,42);
  assert.equal(entries.filter(x=>x.collection==='santara_mega_forms').length,17);
  assert.equal(entries.filter(x=>x.collection==='santara_species_overrides').length,6);
  assert.throws(()=>santaraCatalogEntries('bogus'),/Unknown Santara/);
@@ -92,4 +92,16 @@ test('GM UI links to an import path that checks Firestore documents before writi
  assert.match(party,/checked\.filter\(x=>!x\.exists\)/);
  assert.match(party,/writeBatch\(store\)/);
  assert.match(party,/!GM_SITE\|\|user\?\.uid!==GM_UID/);
+});
+
+
+test('Mega Greninja has Perfected Ninjutsu with maximum hits and per-hit Technician',()=>{
+ const greninja=byName('Mega Greninja');
+ assert.equal(greninja.data.ability,'Perfected Ninjutsu');
+ assert.equal(six.reduce((sum,k)=>sum+greninja.data.baseStats[k],0),630);
+ const ability=byName('Perfected Ninjutsu');
+ assert.equal(ability.collection,'santara_custom_abilities');
+ assert.match(ability.data.description,/maximum possible number of times/);
+ assert.match(ability.data.description,/individual hit/);
+ assert.match(ability.data.description,/50%/);
 });
