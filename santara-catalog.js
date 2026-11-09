@@ -46,7 +46,7 @@ const megas=[
  mega('Mega Dragapult','dragapult',stats(88,135,115,140,110,112),['dragon','ghost'],'Mega Launcher'),
  mega('Mega Ceruledge','ceruledge',stats(75,160,110,60,120,100),['fire','ghost'],'Sharpness'),
  mega('Mega Armarouge','armarouge',stats(85,60,140,165,100,75),['fire','psychic'],'Bastion Furnace'),
- mega('Mega Greninja','greninja',stats(72,110,77,148,81,142),['water','dark'],'Technician'),
+ mega('Mega Greninja','greninja',stats(72,110,77,148,81,142),['water','dark'],'Perfected Ninjutsu'),
  mega('Mega Arbok','arbok',stats(60,135,99,65,89,100),['poison','dark'],'Strong Jaw'),
  mega('Mega Krookodile','krookodile',stats(95,157,105,65,80,117),['ground','dark'],'Adaptability'),
  mega('Mega Hydreigon','hydreigon',stats(92,105,110,170,105,118),['dragon','electric'],'Tempest Crown'),
@@ -61,6 +61,7 @@ const megas=[
  // keeping the signature heavy siege-turret identity. Not from a finalized older chat.
  mega('Mega Archaludon','archaludon',stats(90,105,165,170,105,65),['steel','dragon'],'Siege Battery'),
  ability("Kingdom's End",'When Mega Evolution begins, summon Calamitous Sun for 5 rounds. Fire attacks deal 1.5x damage; Water-type attacks fail; Fire resistance is treated as neutral (immunities remain). Calamitous Sun ends when this Pokémon leaves battle and does not stack with ordinary sun.'),
+ ability('Perfected Ninjutsu','Combines Skill Link and Technician. Multi-hit moves always strike their maximum possible number of times. Moves with base power 60 or less receive a 50% power boost; for multi-hit moves, check the base power of each individual hit and apply Technician to each qualifying hit.'),
  ability('Bastion Furnace','Prevent reductions to the user Defense and Sp. Defense stages. Above 50% HP, damage taken from super-effective moves is reduced by 25%; at or below 50% HP, Fire and Psychic attack damage is boosted by 30% instead.'),
  ability('Tempest Crown','On Mega Evolution, summon Royal Tempest for 5 rounds: Electric-type damage increases by 30%, and Thunder and Hurricane cannot miss while the weather is active. A new weather effect replaces it.'),
  ability('Aurora Chorus','On Mega Evolution, set Aurora Veil on the user side for 5 turns without requiring snow. Use normal Aurora Veil protection and expiry rules. This is a weather-independent veil, not permanent terrain.'),
