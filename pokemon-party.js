@@ -3,7 +3,7 @@ import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,signInWithPopup,Go
 import {getFirestore,collection,doc,query,where,onSnapshot,getDoc,setDoc,addDoc,deleteDoc,writeBatch,updateDoc,serverTimestamp} from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js';
 import {statKeys,statLabels,validStats,maxHpV53,hpAfterMaxChange,dndLevel,proficiencyBonus,levelDamageMultiplier,combatSummary,fromPokeApi,V52_TIERS} from './pokemon-math.js?v=santara-v53-20261109-1';
 import {TYPE_NAMES,initialUnlocks,megaCompatible,effectivePokemon} from './pokemon-gimmicks.js';
-import {classifyMove,classificationLabels} from './pokemon-move-metadata.js?v=santara-grid-moves-20261109-1';
+import {classifyMove,classificationLabels,MOVE_TRAITS,MOVE_TARGETS} from './pokemon-move-metadata.js?v=santara-grid-moves-20261109-1';
 import {TYPES,KEYS,unlockUI,libraryUI,editorUI,controlsUI} from './pokemon-gimmick-ui.js?v=mega-stone-20261027-2';
 import {discoverOfficialMegas,mergeMegaOptions} from './pokemon-official-megas.js';
 import {publicPartySlots,partySignature} from './pokemon-public-party.js';
@@ -154,6 +154,18 @@ function catalogReturn(){
   returnToAssign=false;view='assign';render();
  }else clearSelection();
 }
+// GM-configurable targeting categories for Santara's custom signature moves.
+const CUSTOM_TARGET_OPTIONS=[
+ ['','Not set — GM decides'],['normal','Single target'],['allAdjacentFoes','Opposing spread (8 sq + 2 sq radius)'],
+ ['allAdjacent','Nearby spread, allies included (3 sq radius)'],['self','Self'],['adjacentAlly','Single ally'],
+ ['adjacentAllyOrSelf','Self or ally'],['allySide','Entire allied side'],['allyTeam','Entire team'],
+ ['allies','Active allies'],['foeSide','Entire opposing side'],['all','Entire field'],
+ ['any','Any one Pokémon'],['scripted','Reaction target']
+];
+const CUSTOM_TRAIT_LABELS={slicing:'Slicing',punch:'Punching',bite:'Biting',bullet:'Bullet',
+ pulse:'Pulse',sound:'Sound',wind:'Wind',dance:'Dance',powder:'Powder',
+ heal:'Healing',charge:'Charging',recharge:'Recharge'};
+
 function catalogForm(kind){
  const isMove=kind==='move';
  const options=isMove?customMoves:customAbilities;
@@ -169,6 +181,11 @@ function catalogForm(kind){
  <label class="field">Base Power (optional)<input name="power" type="number" min="0" max="300" placeholder="e.g. 90" value="${chosen?.power??''}"></label>
  <label class="field">Accuracy % (optional)<input name="accuracy" type="number" min="1" max="100" placeholder="Leave empty if it cannot miss" value="${chosen?.accuracy??''}"></label>
  <label class="field full">D&D dice or damage notation (optional)<input name="dice" maxlength="120" placeholder="e.g. 4d8, or scaling by level" value="${esc(chosen?.dice||'')}"></label>
+ <label class="field">Contact property<select name="contact">
+ ${[['','Not set'],['true','Makes contact'],['false','Does not make contact']].map(([v,label])=>option(v,label,typeof chosen?.contact==='boolean'?String(chosen.contact):'')).join('')}</select></label>
+ <label class="field">Target category<select name="target">${CUSTOM_TARGET_OPTIONS.map(([v,label])=>option(v,label,chosen?.target||'')).join('')}</select></label>
+ <div class="field full"><span>Additional move traits</span><div class="trait-choices">
+ ${MOVE_TRAITS.filter(t=>t!=='contact').map(t=>`<label><input type="checkbox" name="traits" value="${t}" ${chosen?.traits?.includes(t)?'checked':''}> ${esc(CUSTOM_TRAIT_LABELS[t]||t)}</label>`).join('')}</div><span class="hint">These properties appear on Pokémon battle sheets. Ranges come from the target category. Existing custom moves can be edited without changing their damage or eligibility.</span></div>
  <label class="field full">Eligible Pokémon species / form IDs (comma-separated)
  <textarea name="allowedSpeciesKeys" maxlength="2400" placeholder="e.g. growlithe-hisui, custom:spinotroleum — use * ONLY for a genuinely universal move">${esc(customMoveScope(chosen).allowedSpeciesKeys.join(', '))}</textarea>
  <span class="hint">Leave blank to keep this move unassigned. Regional variants need their own form ID. Use * to explicitly allow all species.</span></label>
@@ -204,7 +221,15 @@ async function saveCatalog(form,isMove){
   if(!validCustomMoveScope({allowedSpeciesKeys,requiredMegaSlug}))
    throw Error('Use valid species/form IDs (up to 30), and a matching Mega form ID when required. Do not use * for a Mega-exclusive move.');
   if(new Set(allowedSpeciesKeys).size!==allowedSpeciesKeys.length)throw Error('Remove duplicate species IDs.');
-  record={...record,type,category,power,accuracy,dice:cap(fd.get('dice'),120),allowedSpeciesKeys,requiredMegaSlug};
+  const target=String(fd.get('target')||'');
+  const rawContact=String(fd.get('contact')||'');
+  const contact=rawContact===''?null:rawContact==='true';
+  const traits=[...new Set(fd.getAll('traits').map(String))];
+  if(target&&!MOVE_TARGETS.includes(target))throw Error('Choose a supported target category.');
+  if(rawContact!==''&&!['true','false'].includes(rawContact))throw Error('Choose a valid contact property.');
+  if(traits.some(t=>!MOVE_TRAITS.includes(t)||t==='contact'))throw Error('Choose valid move traits.');
+  record={...record,type,category,power,accuracy,dice:cap(fd.get('dice'),120),
+   allowedSpeciesKeys,requiredMegaSlug,target,contact,traits};
  }
  if(!isMove){
   const allowedSpeciesKeys=String(fd.get('allowedSpeciesKeys')||'').split(/[,\n]+/).map(speciesKey).filter(Boolean);
@@ -1358,6 +1383,13 @@ root.addEventListener('change',e=>{
   if(record&&form){
    if(view==='custom-ability'&&form.elements.allowedSpeciesKeys)
     form.elements.allowedSpeciesKeys.value=customAbilityScope(record).allowedSpeciesKeys.join(', ');
+   if(view==='custom-move'){
+    if(form.elements.target)form.elements.target.value=record.target||'';
+    if(form.elements.contact)form.elements.contact.value=typeof record.contact==='boolean'?String(record.contact):'';
+    for(const input of form.querySelectorAll('[name="traits"]'))input.checked=Array.isArray(record.traits)&&record.traits.includes(input.value);
+    if(form.elements.allowedSpeciesKeys)form.elements.allowedSpeciesKeys.value=customMoveScope(record).allowedSpeciesKeys.join(', ');
+    if(form.elements.requiredMegaSlug)form.elements.requiredMegaSlug.value=customMoveScope(record).requiredMegaSlug;
+   }
    for(const key of ['description','type','category','power','accuracy','dice']){
     const field=form.elements[key];if(field)field.value=record[key]??'';
    }
