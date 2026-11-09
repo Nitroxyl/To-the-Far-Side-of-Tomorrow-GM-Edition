@@ -105,3 +105,13 @@ test('Mega Greninja has Perfected Ninjutsu with maximum hits and per-hit Technic
  assert.match(ability.data.description,/individual hit/);
  assert.match(ability.data.description,/50%/);
 });
+
+
+test('GM can selectively synchronize the Greninja revision without overwriting custom artwork',()=>{
+ const code=readFileSync(new URL('../pokemon-party.js',import.meta.url),'utf8');
+ assert.match(code,/santara-greninja-revision/);
+ assert.match(code,/async function syncGreninjaRevision\(\)/);
+ assert.match(code,/batch\.update\(megaRef,\{ability:preset\.data\.ability/);
+ assert.match(code,/megaForm\.ability/);
+ assert.match(code,/getDoc\(doc\(store,'santara_pokemon_mega_assignments'/);
+});
