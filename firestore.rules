@@ -399,6 +399,49 @@ service cloud.firestore {
         && request.resource.data.heldItem.size() <= 80
         && request.resource.data.updatedAt == request.time;
     }
+    // Move Memory is a separate grant ledger. Trainers may initialize only
+    // the exact four moves already assigned by the GM on legacy Pokémon.
+    // Subsequent grants/removals require the GM. No user can mint TMs/Egg moves.
+    function moveMemoryValid(pokemonId,d) {
+      return d.keys().hasOnly(['ownerUid','speciesKey','unlockedMoves','sources','updatedAt'])
+        && d.keys().hasAll(['ownerUid','speciesKey','unlockedMoves','sources','updatedAt'])
+        && d.ownerUid is string && d.ownerUid.size() >= 10 && d.ownerUid.size() <= 128
+        && d.speciesKey is string && d.speciesKey.size() > 0 && d.speciesKey.size() <= 110
+        && d.unlockedMoves is list && d.unlockedMoves.size() <= 180
+        && d.sources is map && d.sources.size() <= 180
+        && d.updatedAt == request.time
+        && d.ownerUid == getAfter(/databases/$(database)/documents/santara_pokemon/$(pokemonId)).data.ownerUid
+        && d.speciesKey == getAfter(/databases/$(database)/documents/santara_pokemon/$(pokemonId)).data.speciesKey;
+    }
+    match /santara_pokemon_move_memory/{pokemonId} {
+      allow get, list: if gm() || (approved() && resource.data.ownerUid == request.auth.uid);
+      allow create, update: if gm() && moveMemoryValid(pokemonId,request.resource.data);
+      allow create: if approved()
+        && request.auth.uid == request.resource.data.ownerUid
+        && moveMemoryValid(pokemonId,request.resource.data)
+        && request.resource.data.unlockedMoves ==
+          getAfter(/databases/$(database)/documents/santara_pokemon/$(pokemonId)).data.moves
+        && request.resource.data.sources == {};
+      allow delete: if gm();
+    }
+    // Only memorized moves can enter a Trainer's four active move slots.
+    // This narrow exception also works on pre-V5.3 Pokémon records.
+    function ownerRememberedMoveUpdate(pokemonId) {
+      return approved()
+        && resource.data.ownerUid == request.auth.uid
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && request.resource.data.speciesKey == resource.data.speciesKey
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['moves','updatedAt'])
+        && shortList(request.resource.data.moves,4)
+        && request.resource.data.moves.toSet().size() == request.resource.data.moves.size()
+        && exists(/databases/$(database)/documents/santara_pokemon_move_memory/$(pokemonId))
+        && get(/databases/$(database)/documents/santara_pokemon_move_memory/$(pokemonId)).data.ownerUid == resource.data.ownerUid
+        && get(/databases/$(database)/documents/santara_pokemon_move_memory/$(pokemonId)).data.speciesKey == resource.data.speciesKey
+        && request.resource.data.moves.hasOnly(
+          get(/databases/$(database)/documents/santara_pokemon_move_memory/$(pokemonId)).data.unlockedMoves)
+        && request.resource.data.updatedAt == request.time;
+    }
+
     // GM TM teaching changes only moves and updatedAt, including legacy records.
     function gmTmMoveUpdate() {
       return gm()
@@ -417,6 +460,7 @@ service cloud.firestore {
         || gmLegacyMegaUpdate()
         || gmLegacyHeldItemUpdate()
         || gmTmMoveUpdate()
+        || ownerRememberedMoveUpdate(pokemonId)
         || (approved() && resource.data.ownerUid == request.auth.uid
           && request.resource.data.ownerUid == resource.data.ownerUid
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
