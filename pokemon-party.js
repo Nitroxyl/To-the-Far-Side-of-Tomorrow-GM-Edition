@@ -1310,7 +1310,19 @@ async function saveAssign(form){
  if(occupying)batch.update(doc(store,'santara_pokemon',occupying.id),{slot:existing?.ownerUid===ownerUid?Number(existing.slot)||0:0,updatedAt:serverTimestamp()});
  if(activeRequestId){batch.update(doc(store,'santara_pokemon_requests',activeRequestId),{status:'approved',resolvedAt:serverTimestamp()});}
  const monRef=existing?doc(store,'santara_pokemon',existing.id):doc(collection(store,'santara_pokemon'));
+ // GM assignments and level-ups grant eligible moves in the memory ledger.
+ // Preserve pre-evolution techniques on real evolutions, but not replacements.
+ const memoryRef=doc(store,'santara_pokemon_move_memory',monRef.id);
+ const memorySnap=await getDoc(memoryRef);
+ const previousMemory=memorySnap.exists()?memorySnap.data():null;
+ const keepsHistory=Boolean(existing&&existing.ownerUid===ownerUid&&(
+  existing.speciesKey===item.speciesKey
+  ||(official?.inheritedFrom||[]).some(x=>speciesKey(x)===speciesKey(existing.speciesKey))));
+ const learnedAtLevel=eligibleLevelMoves(level,official?.levelUpLevels).map(displayMoveName);
+ const memoryBasis={...item,moves:uniqueMoves([...((keepsHistory&&existing?.moves)||[]),...moves],8)};
+ const memory=mergeMoveMemory(memoryBasis,previousMemory,learnedAtLevel,'level-up',keepsHistory);
  batch.set(monRef,item);
+ batch.set(memoryRef,{...memory,updatedAt:serverTimestamp()});
  try{
   await batch.commit();
  }catch(err){
