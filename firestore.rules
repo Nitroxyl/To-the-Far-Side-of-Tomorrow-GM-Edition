@@ -414,7 +414,12 @@ service cloud.firestore {
         && d.speciesKey == getAfter(/databases/$(database)/documents/santara_pokemon/$(pokemonId)).data.speciesKey;
     }
     match /santara_pokemon_move_memory/{pokemonId} {
-      allow get, list: if gm() || (approved() && resource.data.ownerUid == request.auth.uid);
+      // Missing Move Memory documents must be readable as non-existent by
+      // their Pokémon's owner, otherwise first-time legacy seeding cannot run.
+      allow get: if gm() || (approved()
+        && exists(/databases/$(database)/documents/santara_pokemon/$(pokemonId))
+        && get(/databases/$(database)/documents/santara_pokemon/$(pokemonId)).data.ownerUid == request.auth.uid);
+      allow list: if gm() || (approved() && resource.data.ownerUid == request.auth.uid);
       allow create, update: if gm() && moveMemoryValid(pokemonId,request.resource.data);
       allow create: if approved()
         && request.auth.uid == request.resource.data.ownerUid
