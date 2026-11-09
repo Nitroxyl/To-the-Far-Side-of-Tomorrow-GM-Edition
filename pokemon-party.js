@@ -125,7 +125,9 @@ async function changeSpeciesForm(key,request=false){
   const keep=(previous.moves||[]).filter(m=>legalMove(m,next,customMoves,''));
   const level=Number(previous.level)||5;
   const maxHp=maxHpV53(next.baseStats,level);
-  draft={...previous,...next,level,maxHp,currentHp:maxHp,moves:keep,
+  const oldMax=Number(previous.maxHp)||maxHpV53(previous.baseStats,level);
+  const currentHp=hpAfterMaxChange(previous.currentHp??oldMax,oldMax,maxHp);
+  draft={...previous,...next,level,maxHp,currentHp,moves:keep,
    ability:next.abilities?.includes(previous.ability)?previous.ability:next.abilities?.[0]||'',
    megaForm:null,megaActive:false};
  }
