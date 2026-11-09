@@ -44,7 +44,7 @@ Stats: HP / Atk / Def / SpA / SpD / Spe.
 | Mega Dragapult | Dragon/Ghost | Mega Launcher | 88/135/115/140/110/112 |
 | Mega Ceruledge | Fire/Ghost | Sharpness | 75/160/110/60/120/100 |
 | Mega Armarouge | Fire/Psychic | Bastion Furnace | 85/60/140/165/100/75 |
-| Mega Greninja | Water/Dark | Technician | 72/110/77/148/81/142 |
+| Mega Greninja | Water/Dark | Perfected Ninjutsu | 72/110/77/148/81/142 |
 | Mega Arbok | Poison/Dark | Strong Jaw | 60/135/99/65/89/100 |
 | Mega Krookodile | Ground/Dark | Adaptability | 95/157/105/65/80/117 |
 | Mega Hydreigon | Dragon/Electric | Tempest Crown | 92/105/110/170/105/118 |
@@ -63,6 +63,7 @@ The full descriptions are stored in santara-catalog.js and appear in battle shee
 
 - Apex Predator: physical attacks +30% versus injured targets; heal 25% of max HP on knockout.
 - Kingdom's End: five rounds of Calamitous Sun; Fire ×1.5, Water fails, Fire resistances neutralized; ends on switching.
+- Perfected Ninjutsu: combines Skill Link (multi-hit moves always hit the maximum number of times) and Technician (moves of 60 BP or less gain 50% power, calculated per hit for multi-hit moves). Water Shuriken always hits five times, at 22.5 BP per hit before STAB.
 - Bastion Furnace: prevents Defense and Sp. Defense reductions; above half HP reduces super-effective damage 25%; at or below half boosts Fire and Psychic damage 30%.
 - Tempest Crown: Royal Tempest for five rounds, Electric +30%, Thunder and Hurricane cannot miss.
 - Aurora Chorus: establishes Aurora Veil without needing snow.
@@ -78,7 +79,7 @@ The full descriptions are stored in santara-catalog.js and appear in battle shee
 - Schradebreaker: 130 BP Fire Special, 90 accuracy, destroys screens.
 - Schrade's End: 180 BP Fire Special cone, one round to charge, once per battle.
 
-**Superseded drafts:** Charizard Z's most recent revision has **200 SpA**, not the earlier 159 or 199. Ceruledge uses **Sharpness** instead of Soulrend; Greninja uses **Technician**.
+**Superseded drafts:** Charizard Z's most recent revision has **200 SpA**, not the earlier 159 or 199. Ceruledge uses **Sharpness** instead of Soulrend; Greninja's **Perfected Ninjutsu** supersedes its earlier Technician-only design.
 
 **Not previously finalized:** Mega Archaludon's spread and Siege Battery are newly authored proposals. Glitch Pulse and Nihil Light remain optional and separate because their descriptions were not finalized.
 
