@@ -10,7 +10,7 @@ import {discoverOfficialMegas,mergeMegaOptions} from './pokemon-official-megas.j
 import {publicPartySlots,partySignature} from './pokemon-public-party.js';
 import {applyMegaOverlays,cleanMegaSnapshot} from './pokemon-mega-assignments.js';
 import {suggestedMegaStone,hasRequiredMegaStone} from './pokemon-mega-stones.js';
-import {SANTARA_CATALOG_GROUPS,santaraCatalogEntries} from './santara-catalog.js?v=regional-moves-20261108-2';
+import {SANTARA_CATALOG_GROUPS,santaraCatalogEntries} from './santara-catalog.js?v=perfected-ninjutsu-20261110-1';
 import {artworkEntries,artworkFor,artworkPropagation} from './pokemon-artwork.js';
 import {customContentLibraryUI} from './pokemon-custom-library.js';
 import {assignmentProblems} from './pokemon-assignment-check.js';
@@ -264,7 +264,8 @@ function santaraImporterUI(){
    const missing=entries.filter(item=>!(lists[item.collection]||[]).some(x=>(x.slug||x.key)===item.id)).length;
    return '<div class="mega-entry"><div><b>'+esc(group.label)+'</b><p class="hint">'+esc(group.description)+'</p><small>'+missing+' missing of '+entries.length+' preset definitions (estimated from loaded catalogues)</small></div>'+
      '<button type="button" class="btn small" data-act="santara-import" data-group="'+esc(group.id)+'">Import missing</button></div>';
-  }).join('')+'</section>';
+  }).join('')+
+  '<div class="mega-entry"><div><b>Mega Greninja: Perfected Ninjutsu</b><p class="hint">Apply the new Skill Link + Technician ability to an existing Mega Greninja definition and any existing Mega assignments, without changing their stats, artwork or stones.</p></div><button type="button" class="btn small" data-act="santara-greninja-revision">Apply revision</button></div></section>';
 }
 async function importSantaraGroup(group){
  if(!GM_SITE||user?.uid!==GM_UID||!allowed)throw Error('GM authentication required.');
@@ -288,6 +289,32 @@ async function importSantaraGroup(group){
  render();
 }
 
+
+
+async function syncGreninjaRevision(){
+ if(!GM_SITE||user?.uid!==GM_UID||!allowed)throw Error('GM authentication required.');
+ const entries=santaraCatalogEntries('megas');
+ const preset=entries.find(x=>x.collection==='santara_mega_forms'&&x.id==='mega-greninja');
+ const ability=entries.find(x=>x.collection==='santara_custom_abilities'&&x.id==='perfected-ninjutsu');
+ if(!preset||!ability)throw Error('Mega Greninja revision is not in the current catalog.');
+ if(!confirm('Apply Perfected Ninjutsu to Mega Greninja and its existing Pokémon Mega assignments? This only changes the ability and its definition; current stats, artwork and held-item requirements will be preserved.'))return;
+ const megaRef=doc(store,preset.collection,preset.id);
+ const abilityRef=doc(store,ability.collection,ability.id);
+ const [existingMega]=await Promise.all([getDoc(megaRef),getDoc(abilityRef)]);
+ if(existingMega.exists()&&existingMega.data().baseSpeciesKey!=='greninja')throw Error('The Mega Greninja record has an unexpected base species. Nothing changed.');
+ const relatedIds=Object.entries(megaAssignments).filter(([,record])=>record?.megaForm?.slug===preset.id).map(([id])=>id);
+ if(relatedIds.length>450)throw Error('Too many existing Mega assignments for one safe batch.');
+ const assignmentSnaps=await Promise.all(relatedIds.map(id=>getDoc(doc(store,'santara_pokemon_mega_assignments',id))));
+ const outdated=assignmentSnaps.filter(s=>s.exists()&&s.data().megaForm?.slug===preset.id&&s.data().megaForm?.ability!==preset.data.ability);
+ const batch=writeBatch(store);
+ batch.set(abilityRef,{...ability.data,updatedAt:serverTimestamp()},{merge:true});
+ if(existingMega.exists())batch.update(megaRef,{ability:preset.data.ability,updatedAt:serverTimestamp()});
+ else batch.set(megaRef,{...preset.data,updatedAt:serverTimestamp()});
+ for(const snap of outdated)batch.update(snap.ref,{'megaForm.ability':preset.data.ability,updatedAt:serverTimestamp()});
+ await batch.commit();
+ say('Perfected Ninjutsu saved. Updated Mega Greninja and '+outdated.length+' existing assigned Mega forms; artwork, stats and stones were preserved.');
+ render();
+}
 
 function artworkImage(item){
  const src=safeImageData(item?.spriteData)||safeUrl(item?.spriteUrl);
@@ -1442,6 +1469,7 @@ root.addEventListener('click',async e=>{
    busy=true;await updateArtworkRecord({spriteData:target.spriteData||'',spriteUrl:target.spriteUrl||''},true);
   }
   if(action==='santara-import'&&GM_SITE){busy=true;await importSantaraGroup(b.dataset.group)}
+  if(action==='santara-greninja-revision'&&GM_SITE){busy=true;await syncGreninjaRevision()}
   if(action==='rules'&&GM_SITE){view='rules';chosen='';render()}
   if(action==='mega-new'&&GM_SITE){editingMega=null;megaImported=false;view='mega-form';render()}
   if(action==='mega-edit'&&GM_SITE){editingMega={...megaForms.find(m=>m.slug===b.dataset.id)};megaImported=editingMega.source==='official';view='mega-form';render()}
