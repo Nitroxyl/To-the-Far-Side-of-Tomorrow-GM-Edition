@@ -83,6 +83,12 @@ The full descriptions are stored in santara-catalog.js and appear in battle shee
 
 **Not previously finalized:** Mega Archaludon's spread and Siege Battery are newly authored proposals. Glitch Pulse and Nihil Light remain optional and separate because their descriptions were not finalized.
 
+## Applying the Mega Greninja revision to an existing campaign
+
+Mega Greninja's current design is **Water/Dark, 72/110/77/148/81/142 (630 BST), Perfected Ninjutsu**. Perfected Ninjutsu combines Skill Link and Technician: variable-hit attacks always strike their maximum number of times; each hit with 60 BP or less gains 50% power. Water Shuriken is always five 15-BP hits, each boosted to 22.5 BP before STAB.
+
+**Existing Firebase data is not updated by a GitHub commit alone.** The normal *Import missing* action intentionally does not overwrite already imported Mega definitions. After the GM site deploys, sign in as the founding GM, open **My Pokémon → Import Santara custom content**, then select **Apply revision** under **Mega Greninja: Perfected Ninjutsu**. The action asks for confirmation, creates/updates the custom ability entry, updates Mega Greninja's ability while preserving custom stats and artwork, and changes the ability in any Mega Greninja assignment snapshots already loaded by the GM page. It does not affect Pokémon moves, held items, Trainer permissions or any other Mega forms. The Player Edition reads these changes from Firestore after publication by the GM.
+
 ## Limitations
 
 - This is a tracker; custom ability and move effects are readable descriptions, not automated turn/damage rules.
