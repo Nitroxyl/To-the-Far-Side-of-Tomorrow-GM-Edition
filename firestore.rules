@@ -566,7 +566,7 @@ service cloud.firestore {
       allow delete: if gm();
     }
     function customMoveValid(d) {
-      return d.keys().hasOnly(['slug','name','description','type','category','power','accuracy','dice','allowedSpeciesKeys','requiredMegaSlug','updatedAt'])
+      return d.keys().hasOnly(['slug','name','description','type','category','power','accuracy','dice','allowedSpeciesKeys','requiredMegaSlug','target','contact','traits','updatedAt'])
         && d.keys().hasAll(['slug','name','description','type','category','power','accuracy','dice','updatedAt'])
         && catalogBase(d)
         && d.type in ['normal','fire','water','electric','grass','ice','fighting','poison',
@@ -578,7 +578,15 @@ service cloud.firestore {
         && (!('allowedSpeciesKeys' in d)
           || (d.allowedSpeciesKeys is list && d.allowedSpeciesKeys.size() <= 30))
         && (!('requiredMegaSlug' in d)
-          || (d.requiredMegaSlug is string && d.requiredMegaSlug.size() <= 70));
+          || (d.requiredMegaSlug is string && d.requiredMegaSlug.size() <= 70))
+        && (!('target' in d)
+          || (d.target is string && d.target in ['', 'normal', 'adjacentFoe', 'any', 'randomNormal',
+            'scripted', 'self', 'adjacentAlly', 'adjacentAllyOrSelf', 'allAdjacentFoes',
+            'allAdjacent', 'all', 'allies', 'allySide', 'allyTeam', 'foeSide']))
+        && (!('contact' in d) || d.contact == null || d.contact is bool)
+        && (!('traits' in d) || (d.traits is list && d.traits.size() <= 12
+          && d.traits.hasOnly(['slicing', 'punch', 'bite', 'bullet', 'pulse', 'sound',
+            'wind', 'dance', 'powder', 'heal', 'charge', 'recharge'])));
     }
     match /santara_custom_moves/{slug} {
       allow get, list: if member();
