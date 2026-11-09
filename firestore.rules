@@ -93,6 +93,46 @@ service cloud.firestore {
       allow delete: if gm();
     }
 
+    // Optional roleplay-only profile attached to a Trainer Passport.
+    // Legacy cards without a dossier remain valid.
+    function trainerDossierValid(s) {
+      return s is map
+        && s.keys().hasOnly([
+          'age','occupation','beforeJourney','motivation','goal','strength','flaw',
+          'townConnection','trainerConnections','npcConnections','partnerStory',
+          'attributes','skills'
+        ])
+        && s.keys().hasAll([
+          'age','occupation','beforeJourney','motivation','goal','strength','flaw',
+          'townConnection','trainerConnections','npcConnections','partnerStory',
+          'attributes','skills'
+        ])
+        && s.age is string && s.age.size() <= 8
+        && s.occupation is string && s.occupation.size() <= 64
+        && s.beforeJourney is string && s.beforeJourney.size() <= 600
+        && s.motivation is string && s.motivation.size() <= 500
+        && s.goal is string && s.goal.size() <= 500
+        && s.strength is string && s.strength.size() <= 280
+        && s.flaw is string && s.flaw.size() <= 280
+        && s.townConnection is string && s.townConnection.size() <= 500
+        && s.trainerConnections is string && s.trainerConnections.size() <= 500
+        && s.npcConnections is string && s.npcConnections.size() <= 500
+        && s.partnerStory is string && s.partnerStory.size() <= 500
+        && s.attributes is map
+        && s.attributes.keys().hasOnly(['physique','agility','intellect','presence'])
+        && s.attributes.keys().hasAll(['physique','agility','intellect','presence'])
+        && s.attributes.physique is int && s.attributes.physique >= -1 && s.attributes.physique <= 2
+        && s.attributes.agility is int && s.attributes.agility >= -1 && s.attributes.agility <= 2
+        && s.attributes.intellect is int && s.attributes.intellect >= -1 && s.attributes.intellect <= 2
+        && s.attributes.presence is int && s.attributes.presence >= -1 && s.attributes.presence <= 2
+        && s.skills is list && s.skills.size() <= 3
+        && s.skills.hasOnly([
+          'Athletics','Acrobatics','Stealth','Perception','Investigation','Survival',
+          'Pokémon Handling','Pokémon Knowledge','Technology','Medicine',
+          'Persuasion','Deception'
+        ]);
+    }
+
     // Approved Trainers can browse cards; only an owner edits their own.
     match /santara_trainer_cards/{uid} {
       allow get, list: if member();
@@ -102,7 +142,7 @@ service cloud.firestore {
           'ownerUid','trainerName','trainerClass','hometown','partnerPokemon',
           'favoriteType','theme','avatar','badgeCount','quote','updatedAt',
           'trainerTitle','team','pattern','customPrimary','customSecondary',
-          'portraitData','bannerData'
+          'portraitData','bannerData','characterSheet'
         ])
         && request.resource.data.keys().hasAll([
           'ownerUid','trainerName','trainerClass','hometown','partnerPokemon',
@@ -159,6 +199,8 @@ service cloud.firestore {
         && request.resource.data.bannerData.size() <= 260000
         && (request.resource.data.bannerData == '' ||
             request.resource.data.bannerData.matches('^data:image/webp;base64,[A-Za-z0-9+/=]+$'))
+        && (!request.resource.data.keys().hasAny(['characterSheet']) ||
+            trainerDossierValid(request.resource.data.characterSheet))
         && request.resource.data.updatedAt == request.time;
       allow delete: if gm() || (member() && request.auth.uid == uid);
     }
