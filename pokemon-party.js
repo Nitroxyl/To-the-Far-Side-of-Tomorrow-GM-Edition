@@ -1,6 +1,6 @@
 import {initializeApp,getApps,getApp} from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js';
 import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,signInWithPopup,GoogleAuthProvider,getIdTokenResult} from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js';
-import {getFirestore,collection,doc,query,where,onSnapshot,getDoc,setDoc,addDoc,deleteDoc,writeBatch,runTransaction,updateDoc,serverTimestamp} from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js';
+import {getFirestore,collection,doc,query,where,onSnapshot,getDoc,getDocs,setDoc,addDoc,deleteDoc,writeBatch,runTransaction,updateDoc,serverTimestamp} from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js';
 import {statKeys,statLabels,validStats,maxHpV53,hpAfterMaxChange,dndLevel,proficiencyBonus,levelDamageMultiplier,combatSummary,fromPokeApi,V52_TIERS} from './pokemon-math.js?v=santara-grid-moves-20261109-1';
 import {TYPE_NAMES,initialUnlocks,megaCompatible,effectivePokemon} from './pokemon-gimmicks.js';
 import {memoryKey,displayMoveName,uniqueMoves,eligibleLevelMoves,mergeMoveMemory,removeMoveMemory,validEquippedMoves,moveSourceName,MOVE_SOURCES} from './pokemon-move-memory.js?v=move-memory-20261109-1';
@@ -10,7 +10,7 @@ import {discoverOfficialMegas,mergeMegaOptions} from './pokemon-official-megas.j
 import {publicPartySlots,partySignature} from './pokemon-public-party.js';
 import {applyMegaOverlays,cleanMegaSnapshot} from './pokemon-mega-assignments.js';
 import {suggestedMegaStone,hasRequiredMegaStone} from './pokemon-mega-stones.js';
-import {SANTARA_CATALOG_GROUPS,santaraCatalogEntries} from './santara-catalog.js?v=perfected-ninjutsu-20261110-1';
+import {SANTARA_CATALOG_GROUPS,santaraCatalogEntries} from './santara-catalog.js?v=mega-baxcalibur-20261111-1';
 import {artworkEntries,artworkFor,artworkPropagation} from './pokemon-artwork.js';
 import {customContentLibraryUI} from './pokemon-custom-library.js';
 import {assignmentProblems} from './pokemon-assignment-check.js';
@@ -266,7 +266,8 @@ function santaraImporterUI(){
      '<button type="button" class="btn small" data-act="santara-import" data-group="'+esc(group.id)+'">Import missing</button></div>';
   }).join('')+
   '<div class="mega-entry"><div><b>Mega Greninja: Perfected Ninjutsu</b><p class="hint">Apply the new Skill Link + Technician ability to an existing Mega Greninja definition and any existing Mega assignments, without changing their stats, artwork or stones.</p></div><button type="button" class="btn small" data-act="santara-greninja-revision">Apply revision</button></div>'+
-  '<div class="mega-entry"><div><b>Lucario: both Mega revisions + Aura Lance</b><p class="hint">Update Mega Lucario to 155 Attack / 122 Speed, retain Mega Lucario Z’s stats and Aura Guard, publish its exclusive 95 BP Aura Lance, and update existing assignments. Artwork and Mega Stones are preserved. Mach Punch and Wide Guard remain GM-tutor moves.</p></div><button type="button" class="btn small" data-act="santara-lucario-revision">Apply Lucario revision</button></div></section>';
+  '<div class="mega-entry"><div><b>Lucario: both Mega revisions + Aura Lance</b><p class="hint">Update Mega Lucario to 155 Attack / 122 Speed, retain Mega Lucario Z’s stats and Aura Guard, publish its exclusive 95 BP Aura Lance, and update existing assignments. Artwork and Mega Stones are preserved. Mach Punch and Wide Guard remain GM-tutor moves.</p></div><button type="button" class="btn small" data-act="santara-lucario-revision">Apply Lucario revision</button></div>'+
+  '<div class="mega-entry"><div><b>Mega Baxcalibur: Trick Room rework</b><p class="hint">Update Mega Baxcalibur to 115 / 205 / 150 / 75 / 125 / 30 (700 BST), Dragon/Ice and Sword of Ruin. Synchronizes existing Mega assignments while keeping Pokémon, moves, HP, artwork and required stones unchanged.</p></div><button type="button" class="btn small" data-act="santara-baxcalibur-revision">Apply Baxcalibur revision</button></div></section>';
 }
 async function importSantaraGroup(group){
  if(!GM_SITE||user?.uid!==GM_UID||!allowed)throw Error('GM authentication required.');
@@ -371,6 +372,63 @@ async function syncLucarioRevision(){
  await batch.commit();
  say('Lucario revision applied: '+updatedForms+' existing templates updated, '+createdForms+
  ' new templates created, '+updatedAssignments+' assigned Megas synchronized. Aura Lance is registered. Artwork and stones were preserved. Grant the two new tutor moves in Move Memory when earned.');
+ render();
+}
+
+
+async function syncBaxcaliburRevision(){
+ if(!GM_SITE||user?.uid!==GM_UID||!allowed)throw Error('GM authentication required.');
+ const entries=santaraCatalogEntries('megas');
+ const preset=entries.find(x=>x.collection==='santara_mega_forms'&&x.id==='baxcalibur-mega');
+ const ability=entries.find(x=>x.collection==='santara_custom_abilities'&&x.id==='sword-of-ruin');
+ if(!preset||!ability)throw Error('Mega Baxcalibur revision presets are incomplete.');
+ if(!confirm('Apply the Trick Room Mega Baxcalibur rework: 115/205/150/75/125/30 and Sword of Ruin? This also synchronizes existing Mega assignments but preserves artwork, HP, moves, held items and Mega Stone requirements.'))return;
+ const normalizeName=name=>String(name||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+ const targetName=normalizeName(preset.data.name);
+ // Legacy Santara slugs and PokéAPI-compatible slugs can both be present.
+ const possible=new Set([preset.id,'mega-baxcalibur',...megaForms.filter(f=>
+  f.baseSpeciesKey==='baxcalibur'&&normalizeName(f.name)===targetName
+ ).map(f=>f.slug)]);
+ const formSnaps=await Promise.all([...possible].map(id=>getDoc(doc(store,'santara_mega_forms',id))));
+ const existingForms=formSnaps.filter(s=>s.exists());
+ for(const snap of existingForms){
+  const saved=snap.data();
+  if(saved.baseSpeciesKey!=='baxcalibur'||normalizeName(saved.name)!==targetName)
+   throw Error('A conflicting Mega definition exists at '+snap.id+'. No changes were made.');
+ }
+ // Read all live assignments rather than rely on the GM listener's current cache.
+ const allAssignments=await getDocs(collection(store,'santara_pokemon_mega_assignments'));
+ const assigned=allAssignments.docs.filter(s=>
+  s.data().megaForm?.baseSpeciesKey==='baxcalibur'&&
+  normalizeName(s.data().megaForm?.name)===targetName
+ );
+ if(assigned.length+existingForms.length+2>490)
+  throw Error('Too many Mega Baxcalibur assignments for a single safe update batch.');
+ const batch=writeBatch(store);
+ if(existingForms.length){
+  for(const snap of existingForms){
+   // Keep existing artwork and all other GM-defined form metadata intact.
+   batch.update(snap.ref,{baseStats:preset.data.baseStats,types:preset.data.types,
+    ability:preset.data.ability,updatedAt:serverTimestamp()});
+  }
+ }else{
+  batch.set(doc(store,'santara_mega_forms',preset.id),{...preset.data,updatedAt:serverTimestamp()});
+ }
+ // Display the official ability effect on the battle sheet; never grant it
+ // as a selectable custom ability for unrelated Pokémon.
+ batch.set(doc(store,'santara_custom_abilities',ability.id),
+  {...ability.data,allowedSpeciesKeys:[],updatedAt:serverTimestamp()},{merge:true});
+ for(const snap of assigned){
+  // Independent Mega links contain a form snapshot. Update only its combat
+  // fields; leave the stone, artwork, HP, moves and active state alone.
+  batch.update(snap.ref,{'megaForm.baseStats':preset.data.baseStats,
+   'megaForm.types':preset.data.types,'megaForm.ability':preset.data.ability,
+   updatedAt:serverTimestamp()});
+ }
+ await batch.commit();
+ say('Mega Baxcalibur updated to 115/205/150/75/125/30 with Sword of Ruin. '+
+  (existingForms.length?existingForms.length+' existing Mega definition(s) updated':'A new Mega definition was created')+
+  '; '+assigned.length+' existing Mega assignment(s) synchronized. Artwork, held items and required stones were preserved.');
  render();
 }
 
@@ -1529,6 +1587,7 @@ root.addEventListener('click',async e=>{
   if(action==='santara-import'&&GM_SITE){busy=true;await importSantaraGroup(b.dataset.group)}
   if(action==='santara-greninja-revision'&&GM_SITE){busy=true;await syncGreninjaRevision()}
   if(action==='santara-lucario-revision'&&GM_SITE){busy=true;await syncLucarioRevision()}
+  if(action==='santara-baxcalibur-revision'&&GM_SITE){busy=true;await syncBaxcaliburRevision()}
   if(action==='rules'&&GM_SITE){view='rules';chosen='';render()}
   if(action==='mega-new'&&GM_SITE){editingMega=null;megaImported=false;view='mega-form';render()}
   if(action==='mega-edit'&&GM_SITE){editingMega={...megaForms.find(m=>m.slug===b.dataset.id)};megaImported=editingMega.source==='official';view='mega-form';render()}
