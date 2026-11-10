@@ -18,7 +18,7 @@ The importer uses existing Firestore collections: santara_species_overrides, san
 | Group | Included | Who can read it after import |
 | --- | --- | --- |
 | Original fossils | 4 original species, Apex Predator, Tar Rend, Riptide Bite, Faultline Gore | Approved Trainers |
-| Reworked Mega Evolutions | 17 Mega forms, 7 custom abilities, 4 Mega signature moves | Mega forms: GM only; associated move and ability definitions: approved Trainers |
+| Reworked Mega Evolutions | 19 Mega forms, 7 custom abilities, 5 Mega signature moves | Mega forms: GM only; associated move and ability definitions: approved Trainers |
 | Story and alternate forms | Rotom-Server, Yveltal Eclipse Forme, Root Access | Approved Trainers |
 | Provisional signature moves | Glitch Pulse, Nihil Light (clearly marked as working drafts) | Approved Trainers |
 
@@ -54,6 +54,8 @@ Stats: HP / Atk / Def / SpA / SpD / Spe.
 | Mega Kingdra | Water/Dragon | Swift Swim | 75/95/110/160/110/90 |
 | Mega Tyrantrum | Dragon/Fire | Molten Edge | 82/161/139/69/79/91 |
 | Mega Crawdaunt | Water/Dark | Adaptability | 63/165/100/90/65/85 |
+| Mega Lucario (Santara) | Fighting/Steel | Adaptability | **70/155/88/120/70/122** |
+| Mega Lucario Z | Fighting/Steel | Aura Guard | **70/100/70/164/70/151** |
 | Mega Porygon-Z | Normal/Electric | System Override | 85/80/85/165/100/125 |
 | Mega Archaludon (new proposed) | Steel/Dragon | Siege Battery | 90/105/165/170/105/65 |
 
@@ -75,6 +77,7 @@ The full descriptions are stored in santara-catalog.js and appear in battle shee
 - Riptide Bite: 85 BP Water Physical biting move, 30% Defense −1.
 - Faultline Gore: 100 BP Ground Physical, recoil 25% of damage dealt.
 - Psycannon: 120 BP Psychic Special, user Speed −1.
+- **Aura Lance:** 95 BP, 100 accuracy, 10 PP, Fighting Special pulse move; no secondary effect, does not bypass Protect. **Mega Lucario Z only** (assigned form required).
 - Infernal Sweep: 95 BP Fire Special spread move.
 - Schradebreaker: 130 BP Fire Special, 90 accuracy, destroys screens.
 - Schrade's End: 180 BP Fire Special cone, one round to charge, once per battle.
@@ -88,6 +91,16 @@ The full descriptions are stored in santara-catalog.js and appear in battle shee
 Mega Greninja's current design is **Water/Dark, 72/110/77/148/81/142 (630 BST), Perfected Ninjutsu**. Perfected Ninjutsu combines Skill Link and Technician: variable-hit attacks always strike their maximum number of times; each hit with 60 BP or less gains 50% power. Water Shuriken is always five 15-BP hits, each boosted to 22.5 BP before STAB.
 
 **Existing Firebase data is not updated by a GitHub commit alone.** The normal *Import missing* action intentionally does not overwrite already imported Mega definitions. After the GM site deploys, sign in as the founding GM, open **My Pokémon → Import Santara custom content**, then select **Apply revision** under **Mega Greninja: Perfected Ninjutsu**. The action asks for confirmation, creates/updates the custom ability entry, updates Mega Greninja's ability while preserving custom stats and artwork, and changes the ability in any Mega Greninja assignment snapshots already loaded by the GM page. It does not affect Pokémon moves, held items, Trainer permissions or any other Mega forms. The Player Edition reads these changes from Firestore after publication by the GM.
+
+## Applying the Lucario rework to an existing campaign
+
+Both Mega Lucario forms retain 625 BST. **Mega Lucario** is redistributed to **70/155/88/120/70/122** with Adaptability. **Mega Lucario Z** keeps its **70/100/70/164/70/151** spread and Aura Guard. **Aura Lance** is a Mega Lucario Z-exclusive custom move.
+
+After the GM site deploys, sign in as the founding GM and open **My Pokémon → Import Santara custom content → Apply Lucario revision**. This updates any existing Lucario Mega definitions and loaded assignment snapshots, or creates the missing forms, and publishes Aura Lance. It preserves uploaded images, held items, the base Pokémon's existing stats and moves, and Mega Stone requirements. The player-facing site reads the saved definitions and assignment snapshots from the same Firebase project.
+
+**Mach Punch and Wide Guard** are new **Lucario-only GM tutor/reminder options**, not automatic level-up or TM moves. In the selected Lucario's **Move Memory**, the GM should grant each move with source **Tutor** when the player earns it. Compatibility by itself does not unlock or equip either move. A Lucario assigned to Mega Lucario Z can be granted Aura Lance after it becomes available; treat its use as restricted to that active Mega form in tabletop battles.
+
+GitHub deployments do **not** update existing Firebase records automatically. The authenticated GM must use the revision action. This is a tracker, so custom move effects and Mega-only use are enforced by the GM in play rather than by an automated battle engine.
 
 ## Limitations
 
