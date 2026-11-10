@@ -121,7 +121,10 @@ export function customMoveEligible(move,mon,megaSlug=''){
  const base=speciesKey(mon.parentSpeciesKey||mon.speciesKey);
  // Species keys are exact; e.g. growlithe does not grant growlithe-hisui.
  if(!scope.allowedSpeciesKeys.some(x=>x==='*'||x===key))return false;
- if(scope.requiredMegaSlug&&scope.requiredMegaSlug!==speciesKey(megaSlug||mon.megaForm?.slug))return false;
+ // Older Santara custom IDs use mega-lucario-z while official IDs use
+ // lucario-mega-z. Both identify the same Mega without widening eligibility.
+ const canonicalMega=id=>speciesKey(id).replace(/^mega-([a-z0-9]+)(.*)$/,'$1-mega$2');
+ if(scope.requiredMegaSlug&&canonicalMega(scope.requiredMegaSlug)!==canonicalMega(megaSlug||mon.megaForm?.slug))return false;
  return true;
 }
 
