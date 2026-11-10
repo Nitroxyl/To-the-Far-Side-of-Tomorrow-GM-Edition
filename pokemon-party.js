@@ -594,9 +594,13 @@ async function saveMegaForm(form){
  if(!GM_SITE)throw Error('Only the GM can register Mega forms.');
  const f=new FormData(form),name=cap(f.get('name'),85);
  const key=cap(f.get('baseSpeciesKey'),110).toLowerCase().replace(/\s+/g,'-');
- const slug=formSlug(name);
- if(slug.length<2||!/^(custom:[a-z0-9-]+|[a-z0-9-]+)$/.test(key))throw Error('Check the base species key and Mega form name.');
- if(editingMega?.slug&&editingMega.slug!==slug)throw Error('To rename this form, register a new entry rather than overwriting its ID.');
+ // Preserve an existing Mega's Firestore ID on edits. Official IDs
+ // (e.g. baxcalibur-mega) can differ from slugs derived from display names.
+ const slug=editingMega?.slug||formSlug(name);
+ if(!/^[a-z0-9-]{2,70}$/.test(slug)||!/^(custom:[a-z0-9-]+|[a-z0-9-]+)$/.test(key))
+  throw Error('Check the base species key and Mega form name.');
+ if(editingMega?.slug&&name!==editingMega.name)
+  throw Error('To rename this form, register a new entry rather than overwriting its ID.');
  const baseStats=Object.fromEntries(statKeys.map(k=>[k,Number(f.get('stat_'+k))]));
  if(!validStats(baseStats))throw Error('Each Mega base stat must be between 1 and 255.');
  const types=[String(f.get('type1')),String(f.get('type2'))].filter(Boolean);
