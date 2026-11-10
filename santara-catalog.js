@@ -80,7 +80,7 @@ const megas=[
  move('Schradebreaker','fire','Special',130,90,'On hit, destroy the target side Reflect, Light Screen, and Aurora Veil before damage is resolved; does not ignore ordinary Protect.'),
  move("Schrade's End",'fire','Special',180,100,'Mega Charizard Z only. Charge for one full round, then fire a directional cone. Once per battle; resolve damage normally with Calamitous Sun if active. It does not consume HP.'),
  move('Psycannon','psychic','Special',120,100,'After attacking, lower the user Speed by 1 stage.'),
- move('Aura Lance','fighting','Special',95,100,'Mega Lucario Z only. A concentrated aura projectile. No secondary effect; does not bypass Protect. Pulse move. 10 PP.','',{contact:false,target:'normal',traits:['pulse'],priority:0,pp:10})
+ move('Aura Lance','fighting','Special',95,100,'Mega Lucario Z only. A concentrated aura projectile. No secondary effect; does not bypass Protect. Pulse move. 10 PP.','',{contact:false,target:'normal',traits:['pulse']})
 ];
 
 // Story forms can expose unrevealed content to players if imported early.
