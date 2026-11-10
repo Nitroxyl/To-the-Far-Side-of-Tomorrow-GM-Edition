@@ -64,6 +64,8 @@ const megas=[
  mega('Mega Crawdaunt','crawdaunt',stats(63,165,100,90,65,85),['water','dark'],'Adaptability'),
  mega('Mega Lucario','lucario',stats(70,155,88,120,70,122),['fighting','steel'],'Adaptability','lucario-mega'),
  mega('Mega Lucario Z','lucario',stats(70,100,70,164,70,151),['fighting','steel'],'Aura Guard','lucario-mega-z'),
+ // Trick Room rework: 700 BST, +100 over base Baxcalibur. No longer Thermal Exchange.
+ mega('Mega Baxcalibur','baxcalibur',stats(115,205,150,75,125,30),['dragon','ice'],'Sword of Ruin','baxcalibur-mega'),
  mega('Mega Porygon-Z','porygon-z',stats(85,80,85,165,100,125),['normal','electric'],'System Override'),
  // NEW proposal: base Archaludon is 600 BST; this gives its Mega +100 while
  // keeping the signature heavy siege-turret identity. Not from a finalized older chat.
@@ -76,6 +78,8 @@ const megas=[
  ability('Molten Edge','Fire-type attacks and slicing attacks deal 30% more damage. An attack qualifying for both categories gets this boost only once.'),
  ability('System Override','On entry, choose an opponent to mark Exposed. While both remain active, suppress that target Ability, lower its Speed by 1 stage once, and increase damage it receives from this Pokémon Normal- and Electric-type attacks by 20%. Exposed ends if either Pokémon switches out. Working tabletop specification; exact Exposed value was not finalized in earlier drafts.'),
  ability('Siege Battery','NEW PROPOSAL: Electro Shot does not require a charging turn. The first time each round this Pokémon takes damage from an attack, increase its Sp. Attack by 1 stage (once per round, even for multihit attacks).'),
+ // Standard Sword of Ruin translated for Santara V5.3 without rewriting defense tiers.
+ ability('Sword of Ruin','While this Pokémon is active, every OTHER Pokémon has 25% lower Defense, including allies but not the user. For Santara manual combat, apply ×4/3 (about ×1.33) physical damage to attacks against affected targets rather than recalculating Defense stat tiers. The modifier is not an Attack stage change. Apply the normal Sword of Ruin restrictions.'),
  move('Infernal Sweep','fire','Special',95,100,'Fire sweeps across adjacent enemies in a cone (or both opposing targets in a standard double battle). Each target has a 10% chance to be burned.'),
  move('Schradebreaker','fire','Special',130,90,'On hit, destroy the target side Reflect, Light Screen, and Aurora Veil before damage is resolved; does not ignore ordinary Protect.'),
  move("Schrade's End",'fire','Special',180,100,'Mega Charizard Z only. Charge for one full round, then fire a directional cone. Once per battle; resolve damage normally with Calamitous Sun if active. It does not consume HP.'),
@@ -98,7 +102,7 @@ const drafts=[
 
 export const SANTARA_CATALOG_GROUPS=Object.freeze([
  {id:'fossils',label:'Original fossils',description:'4 original species, Apex Predator and three fossil signature moves. Approved Trainers can read these definitions.'},
- {id:'megas',label:'Reworked Mega Evolutions',description:'19 Mega forms, custom Mega abilities and signature attacks. Mega forms are GM-only, but move and ability definitions are player-readable.'},
+ {id:'megas',label:'Reworked Mega Evolutions',description:'20 Mega forms, 9 ability descriptions and 5 signature attacks. Mega forms are GM-only, but move and ability definitions are player-readable.'},
  {id:'story',label:'Story and alternate forms',description:'Rotom-Server, Yveltal Eclipse and Root Access. Import only when spoilers are acceptable.'},
  {id:'drafts',label:'Provisional signature moves',description:'Glitch Pulse and Nihil Light are explicitly marked as working drafts, not finalized campaign rules.'}
 ]);
