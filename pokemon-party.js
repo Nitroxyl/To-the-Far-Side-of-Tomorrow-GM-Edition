@@ -9,7 +9,7 @@ import {TYPES,KEYS,unlockUI,libraryUI,editorUI,controlsUI} from './pokemon-gimmi
 import {discoverOfficialMegas,mergeMegaOptions} from './pokemon-official-megas.js';
 import {publicPartySlots,partySignature} from './pokemon-public-party.js';
 import {applyMegaOverlays,cleanMegaSnapshot} from './pokemon-mega-assignments.js';
-import {suggestedMegaStone,hasRequiredMegaStone} from './pokemon-mega-stones.js';
+import {suggestedMegaStone,hasRequiredMegaStone} from './pokemon-mega-stones.js?v=baxcalibrite-20261111-1';
 import {SANTARA_CATALOG_GROUPS,santaraCatalogEntries} from './santara-catalog.js?v=mega-baxcalibur-20261111-1';
 import {artworkEntries,artworkFor,artworkPropagation} from './pokemon-artwork.js';
 import {customContentLibraryUI} from './pokemon-custom-library.js';
