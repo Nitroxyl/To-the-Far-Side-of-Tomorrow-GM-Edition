@@ -14,7 +14,7 @@ import {SANTARA_CATALOG_GROUPS,santaraCatalogEntries} from './santara-catalog.js
 import {artworkEntries,artworkFor,artworkPropagation} from './pokemon-artwork.js';
 import {customContentLibraryUI} from './pokemon-custom-library.js';
 import {assignmentProblems} from './pokemon-assignment-check.js';
-import {customAbilityScope,validCustomAbilityScope,eligibleAbilityNames,legalAbility,officialFamilyMoveCatalog,officialMoveCatalog,officialMoveSource,pokemonLookupKey,fetchPokeApi,discoverPokemonForms,isGimmickVariety,readableForm,customMoveScope,validCustomMoveScope,legalMove,eligibleMoveNames,speciesKey,moveKey} from './pokemon-forms-learnsets.js?v=move-memory-20261109-1';
+import {customAbilityScope,validCustomAbilityScope,eligibleAbilityNames,legalAbility,officialFamilyMoveCatalog,officialMoveCatalog,officialMoveSource,pokemonLookupKey,fetchPokeApi,discoverPokemonForms,isGimmickVariety,readableForm,customMoveScope,validCustomMoveScope,legalMove,eligibleMoveNames,applySantaraLearnset,speciesKey,moveKey} from './pokemon-forms-learnsets.js?v=lucario-rework-20261111-1';
 
 const GM_UID='ctBLgrVgkLOzUJYTyYgU9IwejYx1';
 const GM_SITE=window.SANTARA_POKEMON_EDITION==='gm';
@@ -265,7 +265,8 @@ function santaraImporterUI(){
    return '<div class="mega-entry"><div><b>'+esc(group.label)+'</b><p class="hint">'+esc(group.description)+'</p><small>'+missing+' missing of '+entries.length+' preset definitions (estimated from loaded catalogues)</small></div>'+
      '<button type="button" class="btn small" data-act="santara-import" data-group="'+esc(group.id)+'">Import missing</button></div>';
   }).join('')+
-  '<div class="mega-entry"><div><b>Mega Greninja: Perfected Ninjutsu</b><p class="hint">Apply the new Skill Link + Technician ability to an existing Mega Greninja definition and any existing Mega assignments, without changing their stats, artwork or stones.</p></div><button type="button" class="btn small" data-act="santara-greninja-revision">Apply revision</button></div></section>';
+  '<div class="mega-entry"><div><b>Mega Greninja: Perfected Ninjutsu</b><p class="hint">Apply the new Skill Link + Technician ability to an existing Mega Greninja definition and any existing Mega assignments, without changing their stats, artwork or stones.</p></div><button type="button" class="btn small" data-act="santara-greninja-revision">Apply revision</button></div>'+
+  '<div class="mega-entry"><div><b>Lucario: both Mega revisions + Aura Lance</b><p class="hint">Update Mega Lucario to 155 Attack / 122 Speed, retain Mega Lucario Z’s stats and Aura Guard, publish its exclusive 95 BP Aura Lance, and update existing assignments. Artwork and Mega Stones are preserved. Mach Punch and Wide Guard remain GM-tutor moves.</p></div><button type="button" class="btn small" data-act="santara-lucario-revision">Apply Lucario revision</button></div></section>';
 }
 async function importSantaraGroup(group){
  if(!GM_SITE||user?.uid!==GM_UID||!allowed)throw Error('GM authentication required.');
@@ -313,6 +314,63 @@ async function syncGreninjaRevision(){
  for(const snap of outdated)batch.update(snap.ref,{'megaForm.ability':preset.data.ability,updatedAt:serverTimestamp()});
  await batch.commit();
  say('Perfected Ninjutsu saved. Updated Mega Greninja and '+outdated.length+' existing assigned Mega forms; artwork, stats and stones were preserved.');
+ render();
+}
+
+
+async function syncLucarioRevision(){
+ if(!GM_SITE||user?.uid!==GM_UID||!allowed)throw Error('GM authentication required.');
+ const entries=santaraCatalogEntries('megas');
+ const forms=entries.filter(x=>x.collection==='santara_mega_forms'&&['lucario-mega','lucario-mega-z'].includes(x.id));
+ const aura=entries.find(x=>x.collection==='santara_custom_moves'&&x.id==='aura-lance');
+ if(forms.length!==2||!aura)throw Error('Lucario revision presets are incomplete.');
+ if(!confirm('Apply both Lucario Mega revisions, publish Aura Lance, and update existing assigned Lucario Megas? Pokémon stats, moves, artwork, held items and Mega Stone requirements are preserved. Mach Punch and Wide Guard remain GM-tutor unlocks.'))return;
+ const normalizeName=name=>String(name||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+ const revisionByName=new Map(forms.map(item=>[normalizeName(item.data.name),item]));
+ const foundForms=[];
+ for(const preset of forms){
+  const possible=new Set([preset.id,...megaForms.filter(f=>f.baseSpeciesKey==='lucario'&&normalizeName(f.name)===normalizeName(preset.data.name)).map(f=>f.slug)]);
+  const snaps=await Promise.all([...possible].map(id=>getDoc(doc(store,'santara_mega_forms',id))));
+  for(const snap of snaps){
+   if(!snap.exists())continue;
+   const data=snap.data();
+   if(data.baseSpeciesKey!=='lucario'||normalizeName(data.name)!==normalizeName(preset.data.name))
+    throw Error('Conflicting Mega definition at '+snap.id+'. Nothing was changed.');
+   foundForms.push({snap,preset});
+  }
+ }
+ const relatedIds=Object.entries(megaAssignments).filter(([,link])=>
+  link?.megaForm?.baseSpeciesKey==='lucario'&&revisionByName.has(normalizeName(link.megaForm.name))
+ ).map(([id])=>id);
+ if(relatedIds.length+foundForms.length+4>490)throw Error('Too many Lucario assignments for a safe Firestore batch.');
+ const assignmentSnaps=await Promise.all(relatedIds.map(id=>getDoc(doc(store,'santara_pokemon_mega_assignments',id))));
+ const batch=writeBatch(store);
+ let updatedForms=0,createdForms=0,updatedAssignments=0;
+ for(const preset of forms){
+  const matching=foundForms.filter(x=>x.preset.id===preset.id);
+  if(!matching.length){
+   batch.set(doc(store,'santara_mega_forms',preset.id),{...preset.data,updatedAt:serverTimestamp()});
+   createdForms++;
+  }else for(const {snap} of matching){
+   // Update combat fields only; keep uploaded art and other GM customizations.
+   batch.update(snap.ref,{baseStats:preset.data.baseStats,types:preset.data.types,
+    ability:preset.data.ability,updatedAt:serverTimestamp()});
+   updatedForms++;
+  }
+ }
+ batch.set(doc(store,'santara_custom_moves',aura.id),{...aura.data,updatedAt:serverTimestamp()},{merge:true});
+ for(const snap of assignmentSnaps){
+  if(!snap.exists())continue;
+  const linked=snap.data().megaForm;
+  const preset=revisionByName.get(normalizeName(linked?.name));
+  if(!preset||linked?.baseSpeciesKey!=='lucario')continue;
+  batch.update(snap.ref,{'megaForm.baseStats':preset.data.baseStats,
+   'megaForm.types':preset.data.types,'megaForm.ability':preset.data.ability,updatedAt:serverTimestamp()});
+  updatedAssignments++;
+ }
+ await batch.commit();
+ say('Lucario revision applied: '+updatedForms+' existing templates updated, '+createdForms+
+ ' new templates created, '+updatedAssignments+' assigned Megas synchronized. Aura Lance is registered. Artwork and stones were preserved. Grant the two new tutor moves in Move Memory when earned.');
  render();
 }
 
@@ -720,7 +778,7 @@ async function fetchOfficial(name){
    found.learnsetIncomplete=learns.incomplete;
   if(found.parentSpeciesKey!==found.speciesKey)
    found.speciesName=readableForm(found.speciesKey,found.parentSpeciesKey);
-  return found;
+  return applySantaraLearnset(found);
  })().then(mon=>{if(mon.learnsetIncomplete)apiCache.delete(key);return mon}).catch(error=>{apiCache.delete(key);throw error}));
  return apiCache.get(key);
 }
@@ -1470,6 +1528,7 @@ root.addEventListener('click',async e=>{
   }
   if(action==='santara-import'&&GM_SITE){busy=true;await importSantaraGroup(b.dataset.group)}
   if(action==='santara-greninja-revision'&&GM_SITE){busy=true;await syncGreninjaRevision()}
+  if(action==='santara-lucario-revision'&&GM_SITE){busy=true;await syncLucarioRevision()}
   if(action==='rules'&&GM_SITE){view='rules';chosen='';render()}
   if(action==='mega-new'&&GM_SITE){editingMega=null;megaImported=false;view='mega-form';render()}
   if(action==='mega-edit'&&GM_SITE){editingMega={...megaForms.find(m=>m.slug===b.dataset.id)};megaImported=editingMega.source==='official';view='mega-form';render()}
