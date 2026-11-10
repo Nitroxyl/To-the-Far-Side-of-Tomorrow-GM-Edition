@@ -497,9 +497,17 @@ async function updateArtworkRecord(next,syncExisting){
  for(let i=0;i<updates.length;i+=20){
   const group=updates.slice(i,i+20);
   const batch=writeBatch(store);
-  for(const item of group)batch.update(doc(store,'santara_pokemon',item.id),{
-   ...item.patch,updatedAt:serverTimestamp()
-  });
+  for(const item of group){
+   // Mega Evolution artwork belongs to the isolated Mega assignment, not the
+   // regular Pokémon document. Patch only the nested art fields so we don't
+   // overwrite a separately updated Mega's stats, ability, or held-item link.
+   const target=selection.kind==='mega'?'santara_pokemon_mega_assignments':'santara_pokemon';
+   const patch=selection.kind==='mega'
+    ?{'megaForm.spriteUrl':item.patch.megaForm.spriteUrl,
+      'megaForm.spriteData':item.patch.megaForm.spriteData}
+    :item.patch;
+   batch.update(doc(store,target,item.id),{...patch,updatedAt:serverTimestamp()});
+  }
   try{await batch.commit();done+=group.length}
   catch(e){
    throw Error('The library artwork was saved, but only '+done+' of '+updates.length+
