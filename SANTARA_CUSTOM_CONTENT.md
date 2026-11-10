@@ -18,7 +18,7 @@ The importer uses existing Firestore collections: santara_species_overrides, san
 | Group | Included | Who can read it after import |
 | --- | --- | --- |
 | Original fossils | 4 original species, Apex Predator, Tar Rend, Riptide Bite, Faultline Gore | Approved Trainers |
-| Reworked Mega Evolutions | 19 Mega forms, 7 custom abilities, 5 Mega signature moves | Mega forms: GM only; associated move and ability definitions: approved Trainers |
+| Reworked Mega Evolutions | 20 Mega forms, 9 ability descriptions (including Sword of Ruin), 5 Mega signature moves | Mega forms: GM only; associated move and ability definitions: approved Trainers |
 | Story and alternate forms | Rotom-Server, Yveltal Eclipse Forme, Root Access | Approved Trainers |
 | Provisional signature moves | Glitch Pulse, Nihil Light (clearly marked as working drafts) | Approved Trainers |
 
@@ -56,6 +56,7 @@ Stats: HP / Atk / Def / SpA / SpD / Spe.
 | Mega Crawdaunt | Water/Dark | Adaptability | 63/165/100/90/65/85 |
 | Mega Lucario (Santara) | Fighting/Steel | Adaptability | **70/155/88/120/70/122** |
 | Mega Lucario Z | Fighting/Steel | Aura Guard | **70/100/70/164/70/151** |
+| Mega Baxcalibur (Santara Trick Room) | Dragon/Ice | **Sword of Ruin** | **115/205/150/75/125/30** |
 | Mega Porygon-Z | Normal/Electric | System Override | 85/80/85/165/100/125 |
 | Mega Archaludon (new proposed) | Steel/Dragon | Siege Battery | 90/105/165/170/105/65 |
 
@@ -73,6 +74,7 @@ The full descriptions are stored in santara-catalog.js and appear in battle shee
 - System Override: inflicts Exposed (Ability suppression, Speed reduction, boosted Normal/Electric damage). The 20% damage modifier and expiry mechanics are working design proposals.
 - Root Access: combines Levitate and Prankster.
 - Siege Battery (new proposal): Electro Shot skips charging; first damaging hit each round gives +1 SpA.
+- **Sword of Ruin (Mega Baxcalibur):** reduces every other Pokémon’s Defense by 25%, including allies but not Mega Baxcalibur itself. In Santara’s hand-calculated V5.3 damage, this may be resolved as a ×4/3 (approximately ×1.33) physical damage modifier against affected targets, rather than shifting Defense tiers.
 - Tar Rend: 85 BP Poison Physical, guaranteed Defense −1 on hit.
 - Riptide Bite: 85 BP Water Physical biting move, 30% Defense −1.
 - Faultline Gore: 100 BP Ground Physical, recoil 25% of damage dealt.
@@ -101,6 +103,14 @@ After the GM site deploys, sign in as the founding GM and open **My Pokémon →
 **Mach Punch and Wide Guard** are new **Lucario-only GM tutor/reminder options**, not automatic level-up or TM moves. In the selected Lucario's **Move Memory**, the GM should grant each move with source **Tutor** when the player earns it. Compatibility by itself does not unlock or equip either move. A Lucario assigned to Mega Lucario Z can be granted Aura Lance after it becomes available; treat its use as restricted to that active Mega form in tabletop battles.
 
 GitHub deployments do **not** update existing Firebase records automatically. The authenticated GM must use the revision action. This is a tracker, so custom move effects and Mega-only use are enforced by the GM in play rather than by an automated battle engine.
+
+## Applying the Mega Baxcalibur Trick Room rework
+
+**Mega Baxcalibur** remains **Dragon/Ice** and **700 BST**, but now has **115 HP / 205 Attack / 150 Defense / 75 Sp. Atk / 125 Sp. Def / 30 Speed** and **Sword of Ruin** instead of Thermal Exchange. It is deliberately built as a slow Trick Room attacker. Its standard movepool is unchanged; it still requires Baxcalibrite when Mega Evolving.
+
+After the updated GM site deploys, sign in as GM and open **My Pokémon → Import Santara custom content → Apply Baxcalibur revision**. The action is idempotent: it creates the Mega template if none exists, or updates matching already-registered Mega Baxcalibur templates (including older IDs) and existing owner-scoped Mega assignment snapshots. It preserves artwork, required Mega Stones, base Pokémon stats/HP/moves, held items, and existing Mega activation state. The Sword of Ruin description is saved for display on Pokémon battle sheets; its combat damage modifier is manually adjudicated under the current tabletop system rather than automated.
+
+**Important:** the regular **Import missing** command does not overwrite existing Firestore records. GitHub deployment also does not update live Firebase data automatically. Run the dedicated GM revision action to replace any old Mega Baxcalibur definition or assignment; the Player Edition reflects the shared Firebase update without a separate code change.
 
 ## Limitations
 
