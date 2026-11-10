@@ -11,7 +11,8 @@ const PRIOR_SCOPES={
  'schrade-s-end':{allowedSpeciesKeys:['charizard'],requiredMegaSlug:'mega-charizard-z'},
  'tar-rend':{allowedSpeciesKeys:['custom:spinotroleum'],requiredMegaSlug:''},
  'riptide-bite':{allowedSpeciesKeys:['custom:mosasord'],requiredMegaSlug:''},
- 'faultline-gore':{allowedSpeciesKeys:['custom:carnotremor'],requiredMegaSlug:''}
+ 'faultline-gore':{allowedSpeciesKeys:['custom:carnotremor'],requiredMegaSlug:''},
+ 'aura-lance':{allowedSpeciesKeys:['lucario'],requiredMegaSlug:'lucario-mega-z'}
 };
 export const LEGACY_MOVE_SCOPES=PRIOR_SCOPES;
 export function speciesKey(value){
@@ -268,6 +269,21 @@ export async function officialFamilyMoveCatalog(pokemon,fetchFn=fetch){
   }
  }catch{incomplete=true}
  return {...historicalMoveCatalog(pokemon,ancestors),incomplete};
+}
+
+
+// Santara house-rule tutor moves. They are learnset-compatible, but never
+// automatically unlocked by level-up or treated as TM compatibility.
+export const SANTARA_TUTOR_MOVES=Object.freeze({
+ lucario:Object.freeze(['mach-punch','wide-guard'])
+});
+export function applySantaraLearnset(mon){
+ const extra=SANTARA_TUTOR_MOVES[speciesKey(mon?.speciesKey)]||[];
+ if(!extra.length)return mon;
+ const knownMoves=[...new Set([...(mon.knownMoves||[]).map(moveKey),...extra])].sort();
+ const moveMethods={...(mon.moveMethods||{})};
+ for(const id of extra)moveMethods[id]=[...new Set([...(moveMethods[id]||[]),'tutor'])].sort();
+ return {...mon,knownMoves,moveMethods};
 }
 
 export function officialLearnset(mon){
