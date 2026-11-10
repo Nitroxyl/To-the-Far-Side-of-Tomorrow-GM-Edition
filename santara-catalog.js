@@ -7,9 +7,14 @@ const entry=(collection,name,data)=>({collection,id:slug(name),data:{slug:slug(n
 const species=(name,baseStats,types,abilities)=>entry('santara_species_overrides',name,{
  baseStats,types,abilities,knownMoves:[],spriteUrl:'',spriteData:''
 });
-const mega=(name,baseSpeciesKey,baseStats,types,ability)=>entry('santara_mega_forms',name,{
- baseSpeciesKey,baseStats,types,ability,spriteUrl:'',spriteData:'',source:'custom'
-});
+const mega=(name,baseSpeciesKey,baseStats,types,ability,officialId='')=>{
+ const item=entry('santara_mega_forms',name,{
+  baseSpeciesKey,baseStats,types,ability,spriteUrl:'',spriteData:'',source:'custom'
+ });
+ // Reworked official Megas use the same ID as PokéAPI's forms.
+ if(officialId){item.id=officialId;item.data.slug=officialId;}
+ return item;
+};
 const ability=(name,description)=>entry('santara_custom_abilities',name,{description});
 // Only listed species/forms may select custom signatures; legacy imported
 // definitions get the same restrictions through pokemon-forms-learnsets.js.
@@ -19,11 +24,12 @@ const scopes={
  "Schrade's End":{allowedSpeciesKeys:['charizard'],requiredMegaSlug:'mega-charizard-z'},
  'Tar Rend':{allowedSpeciesKeys:['custom:spinotroleum'],requiredMegaSlug:''},
  'Riptide Bite':{allowedSpeciesKeys:['custom:mosasord'],requiredMegaSlug:''},
- 'Faultline Gore':{allowedSpeciesKeys:['custom:carnotremor'],requiredMegaSlug:''}
+ 'Faultline Gore':{allowedSpeciesKeys:['custom:carnotremor'],requiredMegaSlug:''},
+ 'Aura Lance':{allowedSpeciesKeys:['lucario'],requiredMegaSlug:'lucario-mega-z'}
 };
-const move=(name,type,category,power,accuracy,description,dice='')=>entry('santara_custom_moves',name,{
+const move=(name,type,category,power,accuracy,description,dice='',metadata={})=>entry('santara_custom_moves',name,{
  type,category,power,accuracy,description,dice,
- ...(scopes[name]||{allowedSpeciesKeys:[],requiredMegaSlug:''})
+ ...(scopes[name]||{allowedSpeciesKeys:[],requiredMegaSlug:''}),...metadata
 });
 
 // Confirmed fossil design discussions, October 2026.
@@ -56,6 +62,8 @@ const megas=[
  mega('Mega Kingdra','kingdra',stats(75,95,110,160,110,90),['water','dragon'],'Swift Swim'),
  mega('Mega Tyrantrum','tyrantrum',stats(82,161,139,69,79,91),['dragon','fire'],'Molten Edge'),
  mega('Mega Crawdaunt','crawdaunt',stats(63,165,100,90,65,85),['water','dark'],'Adaptability'),
+ mega('Mega Lucario','lucario',stats(70,155,88,120,70,122),['fighting','steel'],'Adaptability','lucario-mega'),
+ mega('Mega Lucario Z','lucario',stats(70,100,70,164,70,151),['fighting','steel'],'Aura Guard','lucario-mega-z'),
  mega('Mega Porygon-Z','porygon-z',stats(85,80,85,165,100,125),['normal','electric'],'System Override'),
  // NEW proposal: base Archaludon is 600 BST; this gives its Mega +100 while
  // keeping the signature heavy siege-turret identity. Not from a finalized older chat.
@@ -71,7 +79,8 @@ const megas=[
  move('Infernal Sweep','fire','Special',95,100,'Fire sweeps across adjacent enemies in a cone (or both opposing targets in a standard double battle). Each target has a 10% chance to be burned.'),
  move('Schradebreaker','fire','Special',130,90,'On hit, destroy the target side Reflect, Light Screen, and Aurora Veil before damage is resolved; does not ignore ordinary Protect.'),
  move("Schrade's End",'fire','Special',180,100,'Mega Charizard Z only. Charge for one full round, then fire a directional cone. Once per battle; resolve damage normally with Calamitous Sun if active. It does not consume HP.'),
- move('Psycannon','psychic','Special',120,100,'After attacking, lower the user Speed by 1 stage.')
+ move('Psycannon','psychic','Special',120,100,'After attacking, lower the user Speed by 1 stage.'),
+ move('Aura Lance','fighting','Special',95,100,'Mega Lucario Z only. A concentrated aura projectile. No secondary effect; does not bypass Protect. Pulse move. 10 PP.','',{contact:false,target:'normal',traits:['pulse'],priority:0,pp:10})
 ];
 
 // Story forms can expose unrevealed content to players if imported early.
@@ -89,7 +98,7 @@ const drafts=[
 
 export const SANTARA_CATALOG_GROUPS=Object.freeze([
  {id:'fossils',label:'Original fossils',description:'4 original species, Apex Predator and three fossil signature moves. Approved Trainers can read these definitions.'},
- {id:'megas',label:'Reworked Mega Evolutions',description:'17 Mega forms, custom Mega abilities and signature attacks. Mega forms are GM-only, but move and ability definitions are player-readable.'},
+ {id:'megas',label:'Reworked Mega Evolutions',description:'19 Mega forms, custom Mega abilities and signature attacks. Mega forms are GM-only, but move and ability definitions are player-readable.'},
  {id:'story',label:'Story and alternate forms',description:'Rotom-Server, Yveltal Eclipse and Root Access. Import only when spoilers are acceptable.'},
  {id:'drafts',label:'Provisional signature moves',description:'Glitch Pulse and Nihil Light are explicitly marked as working drafts, not finalized campaign rules.'}
 ]);
