@@ -15,15 +15,21 @@ test('GM catalogue includes finalized custom fossil species and GM-only story sp
 });
 test('Mega Charizard X and Mega Skarmory revised spreads are available',()=>{
  const mega=by('santara_mega_forms');
- assert.ok(mega.length>=22,'All established Megas should be present');
+ assert.ok(mega.length>=24,'All established and Z Megas should be present');
  const skarmory=mega.find(x=>x.name==='Mega Skarmory');
  const charizard=mega.find(x=>x.name==='Mega Charizard X');
+ const garchompZ=mega.find(x=>x.name==='Mega Garchomp Z');
+ const absolZ=mega.find(x=>x.name==='Mega Absol Z');
  assert.deepEqual(skarmory.baseStats,{
    hp:65,attack:150,defense:130,specialAttack:20,specialDefense:95,speed:105
  });
  assert.equal(skarmory.ability,'Sharpness');
  assert.equal(charizard.baseStats.attack,160);
  assert.equal(charizard.ability,'Tough Claws');
+ assert.deepEqual(garchompZ.baseStats,{hp:108,attack:95,defense:90,specialAttack:170,specialDefense:85,speed:152});
+ assert.equal(garchompZ.ability,'Skybreaker');
+ assert.deepEqual(absolZ.baseStats,{hp:65,attack:165,defense:75,specialAttack:45,specialDefense:64,speed:151});
+ assert.equal(absolZ.ability,'Foretold Ruin');
 });
 test('signature moves preserve scope and critical classifications',()=>{
  const moves=by('santara_custom_moves');
@@ -33,6 +39,9 @@ test('signature moves preserve scope and critical classifications',()=>{
  assert.ok(razor.traits.includes('slicing'));
  assert.equal(razor.requiredMegaSlug,'skarmory-mega');
  const machbreak=moves.find(x=>x.name==='Machbreak');
+ const calamity=moves.find(x=>x.name==='Calamity Slash');
+ assert.equal(calamity.power,85);
+ assert.equal(calamity.requiredMegaSlug,'absol-mega-z');
  assert.equal(machbreak.type,'dragon');
  assert.equal(machbreak.requiredMegaSlug,'garchomp-mega-z');
 });
