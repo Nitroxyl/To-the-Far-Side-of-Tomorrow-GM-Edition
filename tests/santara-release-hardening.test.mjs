@@ -73,7 +73,8 @@ test('published GM starter page has no embedded unreleased story',()=>{
  assert.ok(!html.includes('"gmTruth":"'));
  assert.ok(!html.includes('Bastion Tower'));
  assert.ok(!html.includes('Yveltal Eclipse Forme'));
- assert.match(html,/privateBackup:()=>copy\(db\)/);
+ assert.ok(html.includes('privateBackup:()=>copy(db)'));
+
 });
 test('GM private vault is protected in rules and has authenticated backup controls',()=>{
  const rules=readFileSync(new URL('../firestore.rules',import.meta.url),'utf8');
