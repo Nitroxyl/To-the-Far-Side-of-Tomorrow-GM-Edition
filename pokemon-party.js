@@ -614,9 +614,25 @@ async function saveUnlocks(form){
  if(!GM_SITE||!ownerFilter||!mayManageTrainer(ownerFilter))
   throw Error('Select an approved Trainer or authorized Pokémon requester.');
  const values=progressionPayload(new FormData(form),gmProgressionOptions());
- await setDoc(doc(store,'santara_trainer_gimmicks',ownerFilter),{...values,updatedAt:serverTimestamp()});
+ const path=doc(store,'santara_trainer_gimmicks',ownerFilter);
+ let savedContent=true;
+ try{
+  await setDoc(path,{...values,updatedAt:serverTimestamp()});
+ }catch(err){
+  const permissionDenied=err?.code==='permission-denied'||/insufficient permissions/i.test(err?.message||'');
+  const anyContent=['speciesUnlocks','megaFormUnlocks','moveUnlocks','abilityUnlocks','weatherUnlocks']
+   .some(key=>values[key].length);
+  if(!permissionDenied||anyContent)throw new Error(
+   permissionDenied?'Firebase rules are not updated for content unlocks yet. Publish the new firestore.rules from the GM repository, then save again.':err.message);
+  // Compatibility for a GM who has not published the expanded rules yet:
+  // four original gimmick toggles can still be changed without erasing custom grants.
+  savedContent=false;
+  await setDoc(path,{tera:values.tera,mega:values.mega,zMove:values.zMove,
+   dynamax:values.dynamax,updatedAt:serverTimestamp()});
+ }
  unlockDirty=false;
- say('Updated gimmicks and content unlocks for '+trainerLabel(ownerFilter)+'.');
+ say(savedContent?'Updated gimmicks and content unlocks for '+trainerLabel(ownerFilter)+'.':
+  'Updated battle gimmicks. Publish the expanded Firestore rules to enable content reveals.');
  render();
 }
 async function saveMegaForm(form){
