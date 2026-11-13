@@ -3,6 +3,8 @@ import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,signInWithPopup,Go
 import {getFirestore,collection,doc,query,where,onSnapshot,getDoc,getDocs,setDoc,addDoc,deleteDoc,writeBatch,runTransaction,updateDoc,serverTimestamp} from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js';
 import {statKeys,statLabels,validStats,maxHpV53,maxHpV6,hpAfterMaxChange,dndLevel,proficiencyBonus,levelDamageMultiplier,combatSummary,fromPokeApi,V52_TIERS} from './pokemon-math.js?v=v6-damage-20261113-1';
 import {TYPE_NAMES,initialUnlocks,megaCompatible,effectivePokemon} from './pokemon-gimmicks.js';
+import {progressionPayload} from './santara-player-unlocks.js';
+import {makeUnlockOptions,playerUnlockDashboard} from './santara-player-unlocks-ui.js';
 import {memoryKey,displayMoveName,uniqueMoves,eligibleLevelMoves,mergeMoveMemory,removeMoveMemory,validEquippedMoves,moveSourceName,MOVE_SOURCES} from './pokemon-move-memory.js?v=move-memory-20261109-1';
 import {classifyMove,classificationLabels,MOVE_TRAITS,MOVE_TARGETS} from './pokemon-move-metadata.js?v=santara-grid-moves-20261109-1';
 import {TYPES,KEYS,unlockUI,libraryUI,editorUI,controlsUI} from './pokemon-gimmick-ui.js?v=mega-stone-20261027-2';
@@ -34,7 +36,7 @@ let editingCustom=null,editingCatalog=null,originLibrary=false,libraryKind='all'
 let roleAllowed=false,accessApproved=false;
 const officialMegaCache=new Map(),officialMegaPending=new Map();
 let moveMemories={},activeMoveCatalog=null,moveCatalogError='';
-let rawPokemon=[],megaAssignments={},pokemon=[],trainers=[],trainerCards=[],customs=[],customMoves=[],customAbilities=[],requests=[],megaForms=[],trainerUnlocks={},playerUnlocks=initialUnlocks(),editingMega=null,megaImported=false,battleRules=null,stopRules=null,view='party',chosen='',ownerFilter='',editingId='',draft=null,requestDraft=null,activeRequestId='',returnToAssign=false,collectionReady=false,collectionError='',moveInfo={},availableForms=[],formDiscoveryError='',busy=false,artworkKind='all',artworkQuery='',artworkSelected=null;
+let rawPokemon=[],megaAssignments={},pokemon=[],trainers=[],trainerCards=[],customs=[],customMoves=[],customAbilities=[],requests=[],megaForms=[],trainerUnlocks={},playerUnlocks=initialUnlocks(),editingMega=null,megaImported=false,battleRules=null,stopRules=null,view=(GM_SITE&&new URLSearchParams(location.search).get('tab')==='unlocks'?'unlocks':'party'),chosen='',ownerFilter='',editingId='',draft=null,requestDraft=null,activeRequestId='',returnToAssign=false,collectionReady=false,collectionError='',moveInfo={},availableForms=[],formDiscoveryError='',busy=false,artworkKind='all',artworkQuery='',artworkSelected=null;
 
 document.getElementById('edition-name').textContent=GM_SITE?'GM CONSOLE / TEAM MANAGEMENT':'POKÉDEX / TRAINER COLLECTION';
 document.getElementById('page-title').innerHTML=GM_SITE?'Trainer Pokémon<span class="accent">.</span>':'My Pokémon<span class="accent">.</span>';
@@ -539,10 +541,19 @@ async function removeArtwork(){
 
 function formSlug(value){return String(value||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,70);}
 function currentMega(mon){return megaForms.find(f=>f.slug===mon?.megaForm?.slug)||mon?.megaForm||null;}
-function gmMechanicsUI(){
- if(!GM_SITE)return '';
- const g=unlocks(ownerFilter);
- return unlockUI(g,trainerLabel(ownerFilter),esc)+libraryUI(megaForms,esc);
+function gmMechanicsUI(){return GM_SITE?libraryUI(megaForms,esc):'';}
+function gmProgressionOptions(){
+ const presets=['fossils','megas','story','drafts'].flatMap(group=>santaraCatalogEntries(group));
+ return makeUnlockOptions({species:customs,megaForms,moves:customMoves,
+  abilities:customAbilities,presets,saved:trainerUnlocks[ownerFilter]});
+}
+function gmProgressionPage(){
+ const selectedTrainers=managedTrainers().map(t=>({
+  uid:t.uid,label:trainerLabel(t.uid)+(t.authorizedRequester?' · authorized requester':'')
+ }));
+ return playerUnlockDashboard({uid:ownerFilter,trainerName:trainerLabel(ownerFilter),
+  trainers:selectedTrainers,unlocks:trainerUnlocks[ownerFilter],
+  options:gmProgressionOptions(),esc,option});
 }
 function megaChoiceFor(mon){
  const key=String(mon?.speciesKey||'').toLowerCase();
@@ -592,11 +603,11 @@ async function refreshMegaChoices(mon){
  }
 }
 async function saveUnlocks(form){
- if(!GM_SITE||!ownerFilter||!mayManageTrainer(ownerFilter))throw Error('Select an approved Trainer or an authorized Pokémon requester.');
- const f=new FormData(form);
- const values={tera:f.has('tera'),mega:f.has('mega'),zMove:f.has('zMove'),dynamax:f.has('dynamax'),updatedAt:serverTimestamp()};
- await setDoc(doc(store,'santara_trainer_gimmicks',ownerFilter),values);
- say('Updated unlocks for '+trainerLabel(ownerFilter)+'.');
+ if(!GM_SITE||!ownerFilter||!mayManageTrainer(ownerFilter))
+  throw Error('Select an approved Trainer or authorized Pokémon requester.');
+ const values=progressionPayload(new FormData(form),gmProgressionOptions());
+ await setDoc(doc(store,'santara_trainer_gimmicks',ownerFilter),{...values,updatedAt:serverTimestamp()});
+ say('Updated gimmicks and content unlocks for '+trainerLabel(ownerFilter)+'.');
 }
 async function saveMegaForm(form){
  if(!GM_SITE)throw Error('Only the GM can register Mega forms.');
@@ -776,7 +787,7 @@ function connect(){
  stopGimmicks=onSnapshot(GM_SITE?collection(store,'santara_trainer_gimmicks'):doc(store,'santara_trainer_gimmicks',user.uid),snap=>{
    if(GM_SITE)trainerUnlocks=Object.fromEntries(snap.docs.map(d=>[d.id,d.data()]));
    else playerUnlocks=snap.exists()?snap.data():initialUnlocks();
-   if(view==='party'||view==='storage'||chosen)render();
+   if(view==='party'||view==='storage'||view==='unlocks'||chosen)render();
  },e=>console.warn('Unlock listener:',e.message));
  if(GM_SITE)stopMegaForms=onSnapshot(collection(store,'santara_mega_forms'),snap=>{
   megaForms=snap.docs.map(d=>({...d.data(),slug:d.id})).sort((a,b)=>a.name.localeCompare(b.name));
@@ -990,7 +1001,7 @@ function roster(){
  const slots=Array.from({length:6},(_,i)=>active.find(m=>Number(m.slot)===i+1));
  return `<div class="toolbar"><h2>${GM_SITE?'Trainer Party':'Current Party'} <span class="chip">${active.length}/6</span></h2>
  <div class="tabs">${GM_SITE?`<select id="trainer-filter" aria-label="Select Trainer">${option('','Select trainer…',ownerFilter)}${managedTrainers().map(t=>option(t.uid,trainerLabel(t.uid)+(t.authorizedRequester?' · authorized requester':''),ownerFilter)).join('')}</select><button class="btn primary" data-act="new">+ Assign Pokémon</button>`:'<button class="btn primary" data-act="request">+ Request Pokémon</button>'}
- <button class="btn ${view==='party'?'primary':''}" data-act="party">Party</button><button class="btn ${view==='storage'?'primary':''}" data-act="storage">Storage (${storage.length})</button></div></div>`;
+ <button class="btn ${view==='party'?'primary':''}" data-act="party">Party</button><button class="btn ${view==='storage'?'primary':''}" data-act="storage">Storage (${storage.length})</button>${GM_SITE?'<button class="btn" data-act="unlocks">Player Unlocks</button>':''}</div></div>`;
 }
 function listView(){
  const mine=GM_SITE?pokemon.filter(m=>m.ownerUid===ownerFilter):pokemon;
@@ -1299,6 +1310,7 @@ function render(){
  if(view==='custom-move'){root.innerHTML=catalogForm('move');return}
  if(view==='custom-ability'){root.innerHTML=catalogForm('ability');return}
  if(view==='rules'){root.innerHTML=rulesForm();return}
+ if(view==='unlocks'&&GM_SITE){root.innerHTML=gmProgressionPage();return}
  if(view==='request'){root.innerHTML=requestForm();return}
  if(!collectionReady){root.innerHTML=collectionError?`<section class="panel"><h2>Pokémon collection could not load</h2><p>${esc(collectionError)}</p><p>Firestore has not granted access to the Pokémon collection. The GM must publish the latest <b>firestore.rules</b> from the GM repository in the Firebase Console. Refresh after the rules are live.</p><a class="btn" href="./index.html">Return to Fieldwork</a></section>`:'<section class="panel"><p>Loading Pokémon records…</p></section>';return}
  const mon=pokemon.find(m=>m.id===chosen);
@@ -1531,6 +1543,7 @@ root.addEventListener('click',async e=>{
  const action=b.dataset.act;
  try{
   if(action==='party'||action==='storage'){chosen='';view=action;render()}
+  if(action==='unlocks'&&GM_SITE){chosen='';view='unlocks';render()}
   if(action==='show')await selectMon(b.dataset.id);
   if(action==='manage-moves'){busy=true;await openMoveManager()}
   if(action==='memory-back'){view='party';render()}
@@ -1723,6 +1736,7 @@ root.addEventListener('change',e=>{
   }
  }
  if(e.target.id==='trainer-filter'){ownerFilter=e.target.value;chosen='';view='party';render()}
+ if(e.target.id==='unlock-trainer-filter'&&GM_SITE){ownerFilter=e.target.value;chosen='';view='unlocks';render()}
  if(e.target.name==='level'&&view==='assign'&&GM_SITE)refreshLevelHpPreview(document.getElementById('assign-form'));
   if(e.target.name==='maxHp'&&view==='assign'&&GM_SITE){
    const form=document.getElementById('assign-form');
@@ -1751,6 +1765,7 @@ root.addEventListener('submit',async e=>{
   if(form.id==='rules-form'&&GM_SITE)await saveRules(form);
   if(form.id==='mega-form'&&GM_SITE)await saveMegaForm(form);
   if(form.id==='gimmick-unlock-form'&&GM_SITE)await saveUnlocks(form);
+  if(form.id==='trainer-unlocks-form'&&GM_SITE)await saveUnlocks(form);
  }catch(err){fail(err)}finally{busy=false;if(button?.isConnected)button.disabled=false}
 });
 
