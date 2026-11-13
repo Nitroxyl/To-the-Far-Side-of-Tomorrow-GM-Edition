@@ -1,7 +1,7 @@
 // Santara Fieldwork — Firestore live publishing.
 // Only player-safe publication bundles are transferred; the GM database stays local.
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js';
-import { getFirestore, doc, onSnapshot, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js';
+import { getFirestore, doc, getDoc, onSnapshot, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js';
 
 const bridge = window.SantaraBridge;
@@ -14,7 +14,7 @@ const configured = config && ['apiKey', 'authDomain', 'projectId', 'appId'].ever
 const panel = document.createElement('aside');
 panel.id = 'santara-cloud-panel';
 panel.style.cssText = 'position:fixed;z-index:5;bottom:14px;right:14px;width:min(320px,calc(100vw - 28px));padding:12px 14px;background:#142735;color:#e5f4f4;border:1px solid #518b85;border-radius:13px;box-shadow:0 8px 30px #0008;font:13px/1.45 system-ui,sans-serif';
-panel.innerHTML = `<div style="font-weight:750;margin-bottom:4px">☁ ${isGM ? 'GM publishing' : 'Live Pokédex'} · Firestore</div><div id="cloud-status" role="status" aria-live="polite" style="color:#b4c9c9">Connecting…</div>${isGM ? '<div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:9px"><button id="cloud-signin" type="button">Sign in with Google</button><button id="cloud-email-toggle" type="button">Email login</button><button id="cloud-publish" type="button" disabled>Publish visible records</button><button id="cloud-signout" type="button" hidden>Sign out</button></div><form id="cloud-email-form" hidden style="display:none;margin-top:10px"><input name="email" type="email" required placeholder="Email" style="box-sizing:border-box;width:100%;margin-bottom:5px"><input name="password" type="password" required placeholder="Password" style="box-sizing:border-box;width:100%;margin-bottom:5px"><button type="submit">Sign in</button></form><a href="./account-access.html" style="display:block;margin-top:6px;color:#9de9d1">Check UID / GM permissions</a>' : ''}`;
+panel.innerHTML = `<div style="font-weight:750;margin-bottom:4px">☁ ${isGM ? 'GM publishing' : 'Live Pokédex'} · Firestore</div><div id="cloud-status" role="status" aria-live="polite" style="color:#b4c9c9">Connecting…</div>${isGM ? '<div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:9px"><button id="cloud-signin" type="button">Sign in with Google</button><button id="cloud-email-toggle" type="button">Email login</button><button id="cloud-publish" type="button" disabled>Publish visible records</button><button id="cloud-vault-save" type="button" disabled>Back up GM story</button><button id="cloud-vault-restore" type="button" disabled>Restore GM story</button><button id="cloud-signout" type="button" hidden>Sign out</button></div><form id="cloud-email-form" hidden style="display:none;margin-top:10px"><input name="email" type="email" required placeholder="Email" style="box-sizing:border-box;width:100%;margin-bottom:5px"><input name="password" type="password" required placeholder="Password" style="box-sizing:border-box;width:100%;margin-bottom:5px"><button type="submit">Sign in</button></form><a href="./account-access.html" style="display:block;margin-top:6px;color:#9de9d1">Check UID / GM permissions</a>' : ''}`;
 document.body.append(panel);
 for (const button of panel.querySelectorAll('button')) {
   button.style.cssText = 'background:#22605e;border:1px solid #68b8a9;border-radius:7px;color:white;padding:6px 9px;cursor:pointer';
@@ -30,10 +30,15 @@ if (!bridge) {
     const app = initializeApp(config);
     const store = getFirestore(app);
     const publishedRef = doc(store, 'santara_publication', 'current');
+    const privateRef = doc(store, 'santara_gm_private_campaign', 'current');
     if (isGM) {
       const auth = getAuth(app);
       const signInButton = panel.querySelector('#cloud-signin');
       const publishButton = panel.querySelector('#cloud-publish');
+       const vaultSaveButton = panel.querySelector('#cloud-vault-save');
+       const vaultRestoreButton = panel.querySelector('#cloud-vault-restore');
+       function updateButtons(){const disabled=!currentUser||!roleAllowed;
+         publishButton.disabled=disabled;vaultSaveButton.disabled=disabled;vaultRestoreButton.disabled=disabled;}
       const signOutButton = panel.querySelector('#cloud-signout');
       const emailButton=panel.querySelector('#cloud-email-toggle');
       const emailForm=panel.querySelector('#cloud-email-form');
@@ -60,17 +65,17 @@ if (!bridge) {
         emailButton.hidden=Boolean(user);
         if(user){emailForm.hidden=true;emailForm.style.display='none'}
         signOutButton.hidden=!user;
-        publishButton.disabled=true;
+        updateButtons();
         if(!user){status('Sign in with an authorized GM account to publish.');return}
-        if(user.uid===ROOT_UID){roleAllowed=true;publishButton.disabled=false;
+        if(user.uid===ROOT_UID){roleAllowed=true;updateButtons();
           status('Founding GM: '+(user.email||user.uid));return}
         if(!user.emailVerified){status('Verify your account email to use delegated GM privileges.');return}
         stopRole=onSnapshot(doc(store,'santara_gm_accounts',user.uid),snap=>{
           const record=snap.exists()?snap.data():null;
           roleAllowed=record?.enabled===true&&record.email===user.email;
-          publishButton.disabled=!roleAllowed;
+          updateButtons();
           status(roleAllowed?'Authorized GM: '+user.email:'No GM role for this account. Open Account Access to request authorization.');
-        },err=>{roleAllowed=false;publishButton.disabled=true;status('GM authorization check failed: '+err.message)});
+        },err=>{roleAllowed=false;updateButtons();status('GM authorization check failed: '+err.message)});
       },error=>status('Authentication error: '+error.message));
       signInButton.addEventListener('click', async () => {
         try { await signInWithPopup(auth, new GoogleAuthProvider()); }
@@ -79,6 +84,40 @@ if (!bridge) {
       signOutButton.addEventListener('click', async () => {
         try { await signOut(auth); }
         catch (error) { status(`Sign-out failed: ${error.message}`); }
+      });
+      vaultSaveButton.addEventListener('click',async()=>{
+        if(!currentUser||!roleAllowed)return;
+        const snapshot=bridge.privateBackup?.();
+        if(!snapshot||!Array.isArray(snapshot.sites)||!Array.isArray(snapshot.quests)||
+          !Array.isArray(snapshot.wildlife)||!Array.isArray(snapshot.sessions)||
+          !snapshot.brief ||typeof snapshot.brief!=='object'){
+          status('GM notebook backup is invalid.');return;
+        }
+        if(!snapshot.sites.length&&!snapshot.quests.length&&!snapshot.wildlife.length){
+          status('Nothing to back up. Restore a GM notebook or import its JSON file first.');return;
+        }
+        const size=new TextEncoder().encode(JSON.stringify(snapshot)).length;
+        if(size>850000){status('Private notebook exceeds 850 KB; export a local JSON backup instead.');return}
+        if(!confirm('Back up the current GM notebook to the GM-only Firestore vault? It replaces the previous private cloud backup.'))return;
+        vaultSaveButton.disabled=true;status('Backing up unreleased GM story data privately…');
+        try{
+          await setDoc(privateRef,{data:snapshot,updatedAt:serverTimestamp()});
+          status('Private GM notebook backed up. Only authorized GM accounts can read it.');
+        }catch(err){status('GM private backup failed: '+err.message+'. Publish the latest Firestore rules first.')}
+        finally{updateButtons()}
+      });
+      vaultRestoreButton.addEventListener('click',async()=>{
+        if(!currentUser||!roleAllowed)return;
+        vaultRestoreButton.disabled=true;status('Looking for private GM notebook…');
+        try{
+          const snapshot=await getDoc(privateRef);
+          if(!snapshot.exists()){status('No cloud GM backup yet. Use Import JSON to restore your private notebook, then back it up.');return}
+          const data=snapshot.data().data;
+          if(!confirm('Replace the GM notebook in this browser with the private cloud backup? Export a local JSON backup first if needed.'))return;
+          bridge.restorePrivateBackup?.(data);
+          status('Private GM story restored to this browser.');
+        }catch(err){status('Could not restore private GM notebook: '+err.message)}
+        finally{updateButtons()}
       });
       publishButton.addEventListener('click', async () => {
         if (!currentUser||!roleAllowed) return;
@@ -98,7 +137,7 @@ if (!bridge) {
         } catch (error) {
           status(`Publish failed: ${error.message}. Check Firestore Rules and your GM UID.`);
         } finally {
-          publishButton.disabled = !currentUser||!roleAllowed;
+          updateButtons();
         }
       });
     } else {
