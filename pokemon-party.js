@@ -4,6 +4,8 @@ import {getFirestore,collection,doc,query,where,onSnapshot,getDoc,getDocs,setDoc
 import {statKeys,statLabels,validStats,maxHpV53,maxHpV6,hpAfterMaxChange,dndLevel,proficiencyBonus,levelDamageMultiplier,combatSummary,fromPokeApi,V52_TIERS} from './pokemon-math.js?v=v6-damage-20261113-1';
 import {TYPE_NAMES,initialUnlocks,megaCompatible,effectivePokemon} from './pokemon-gimmicks.js';
 import {progressionPayload} from './santara-player-unlocks.js';
+import {hpMigrationPlan,verifyMigrationSnapshot} from './pokemon-v6-hp-migration.js';
+import {hpMigrationUI} from './pokemon-v6-hp-migration-ui.js';
 import {makeUnlockOptions,playerUnlockDashboard} from './santara-player-unlocks-ui.js';
 import {memoryKey,displayMoveName,uniqueMoves,eligibleLevelMoves,mergeMoveMemory,removeMoveMemory,validEquippedMoves,moveSourceName,MOVE_SOURCES} from './pokemon-move-memory.js?v=move-memory-20261109-1';
 import {classifyMove,classificationLabels,MOVE_TRAITS,MOVE_TARGETS} from './pokemon-move-metadata.js?v=santara-grid-moves-20261109-1';
@@ -33,10 +35,10 @@ const STAT_NAMES=['HP','Atk','Def','SpA','SpD','Spe'];
 const apiCache=new Map(),moveCache=new Map(),speciesFormCache=new Map();
 let app,auth,store,user=null,allowed=false,stopAccess=null,stopPokemon=null,stopApprovals=null,stopCustoms=null,stopRequests=null,stopCards=null,stopMoves=null,stopAbilities=null,stopGimmicks=null,stopMegaForms=null,stopRole=null,stopMegaAssignments=null,stopMoveMemory=null;
 let editingCustom=null,editingCatalog=null,originLibrary=false,libraryKind='all',librarySearch='';
-let roleAllowed=false,accessApproved=false,unlockDirty=false;
+let roleAllowed=false,accessApproved=false,unlockDirty=false,hpMigrateOverrides=false,hpMigrationActive=false;
 const officialMegaCache=new Map(),officialMegaPending=new Map();
 let moveMemories={},activeMoveCatalog=null,moveCatalogError='';
-let rawPokemon=[],megaAssignments={},pokemon=[],trainers=[],trainerCards=[],customs=[],customMoves=[],customAbilities=[],requests=[],megaForms=[],trainerUnlocks={},playerUnlocks=initialUnlocks(),editingMega=null,megaImported=false,battleRules=null,stopRules=null,view=(GM_SITE&&new URLSearchParams(location.search).get('tab')==='unlocks'?'unlocks':'party'),chosen='',ownerFilter='',editingId='',draft=null,requestDraft=null,activeRequestId='',returnToAssign=false,collectionReady=false,collectionError='',moveInfo={},availableForms=[],formDiscoveryError='',busy=false,artworkKind='all',artworkQuery='',artworkSelected=null;
+let rawPokemon=[],megaAssignments={},pokemon=[],trainers=[],trainerCards=[],customs=[],customMoves=[],customAbilities=[],requests=[],megaForms=[],trainerUnlocks={},playerUnlocks=initialUnlocks(),editingMega=null,megaImported=false,battleRules=null,stopRules=null,view=(GM_SITE&&['unlocks','hp-migration'].includes(new URLSearchParams(location.search).get('tab'))?new URLSearchParams(location.search).get('tab'):'party'),chosen='',ownerFilter='',editingId='',draft=null,requestDraft=null,activeRequestId='',returnToAssign=false,collectionReady=false,collectionError='',moveInfo={},availableForms=[],formDiscoveryError='',busy=false,artworkKind='all',artworkQuery='',artworkSelected=null;
 
 document.getElementById('edition-name').textContent=GM_SITE?'GM CONSOLE / TEAM MANAGEMENT':'POKÉDEX / TRAINER COLLECTION';
 document.getElementById('page-title').innerHTML=GM_SITE?'Trainer Pokémon<span class="accent">.</span>':'My Pokémon<span class="accent">.</span>';
@@ -1027,8 +1029,54 @@ function roster(){
  const slots=Array.from({length:6},(_,i)=>active.find(m=>Number(m.slot)===i+1));
  return `<div class="toolbar"><h2>${GM_SITE?'Trainer Party':'Current Party'} <span class="chip">${active.length}/6</span></h2>
  <div class="tabs">${GM_SITE?`<select id="trainer-filter" aria-label="Select Trainer">${option('','Select trainer…',ownerFilter)}${managedTrainers().map(t=>option(t.uid,trainerLabel(t.uid)+(t.authorizedRequester?' · authorized requester':''),ownerFilter)).join('')}</select><button class="btn primary" data-act="new">+ Assign Pokémon</button>`:'<button class="btn primary" data-act="request">+ Request Pokémon</button>'}
- <button class="btn ${view==='party'?'primary':''}" data-act="party">Party</button><button class="btn ${view==='storage'?'primary':''}" data-act="storage">Storage (${storage.length})</button>${GM_SITE?'<button class="btn" data-act="unlocks">Player Unlocks</button>':''}</div></div>`;
+ <button class="btn ${view==='party'?'primary':''}" data-act="party">Party</button><button class="btn ${view==='storage'?'primary':''}" data-act="storage">Storage (${storage.length})</button>${GM_SITE?'<button class="btn" data-act="unlocks">Player Unlocks</button><button class="btn" data-act="hp-migration">HP Migration</button>':''}</div></div>`;
 }
+function exportHpSnapshot(records){
+ const rows=records.map(m=>({id:m.id,ownerUid:m.ownerUid,speciesName:m.speciesName,
+  nickname:m.nickname,level:m.level,baseStats:m.baseStats,maxHp:m.maxHp,currentHp:m.currentHp}));
+ const payload={kind:'santaraV6HPBackup',createdAt:new Date().toISOString(),records:rows};
+ const url=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));
+ const a=document.createElement('a');a.href=url;a.download='santara-hp-backup-'+new Date().toISOString().slice(0,10)+'.json';
+ document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),3000);
+ return rows.length;
+}
+async function migrateAllHp(){
+ if(!GM_SITE||!roleAllowed||!collectionReady)throw Error('A fully loaded GM Pokémon collection is required.');
+ const plan=hpMigrationPlan(pokemon,hpMigrateOverrides),rows=plan.eligible;
+ if(!rows.length){say('There are no eligible HP records to update.');return}
+ const overrides=rows.filter(x=>x.category==='override').length;
+ const confirmation='This will migrate '+rows.length+' Pokémon to V6 HP, preserving damage already taken.'
+  +(overrides?' '+overrides+' manually adjusted / boss records will also be replaced.':'')
+  +' An HP backup will be downloaded first. Continue?';
+ if(!confirm(confirmation))return;
+ exportHpSnapshot(pokemon);
+ hpMigrationActive=true;
+ let updated=0,unchanged=0,failed=[];
+ try{
+  for(const row of rows){
+   if(!row.id)continue;
+   try{
+    await runTransaction(store,async transaction=>{
+     const ref=doc(store,'santara_pokemon',row.id);
+     const snap=await transaction.get(ref);
+     if(!snap.exists()||!verifyMigrationSnapshot(snap.data(),row)){
+      throw Error('Pokémon record changed since preview; not overwritten.');
+     }
+     const next=hpMigrationPlan([{id:row.id,...snap.data()}],true).rows[0];
+     if(next.category==='already-v6'){unchanged++;return}
+     transaction.update(ref,{maxHp:row.newMax,currentHp:row.newCurrent,updatedAt:serverTimestamp()});
+    });
+    updated++;
+   }catch(err){failed.push(row.name+': '+(err.message||String(err)));}
+  }
+ }finally{hpMigrationActive=false;}
+ const summary=updated+' Pokémon migrated to V6 HP.'
+  +(failed.length?' '+failed.length+' failed (not changed): '+failed.slice(0,4).join(' | '):'')
+  +(unchanged?' '+unchanged+' already updated.':'');
+ say(summary);
+ render();
+}
+
 function listView(){
  const mine=GM_SITE?pokemon.filter(m=>m.ownerUid===ownerFilter):pokemon;
  const active=mine.filter(m=>Number(m.slot)>0&&Number(m.slot)<=6),storage=mine.filter(m=>!Number(m.slot)||Number(m.slot)>6);
@@ -1338,6 +1386,7 @@ function render(){
  if(view==='custom-ability'){root.innerHTML=catalogForm('ability');return}
  if(view==='rules'){root.innerHTML=rulesForm();return}
  if(view==='unlocks'&&GM_SITE){root.innerHTML=gmProgressionPage();return}
+ if(view==='hp-migration'&&GM_SITE){root.innerHTML=hpMigrationUI(pokemon,hpMigrateOverrides,esc);return}
  if(view==='request'){root.innerHTML=requestForm();return}
  if(!collectionReady){root.innerHTML=collectionError?`<section class="panel"><h2>Pokémon collection could not load</h2><p>${esc(collectionError)}</p><p>Firestore has not granted access to the Pokémon collection. The GM must publish the latest <b>firestore.rules</b> from the GM repository in the Firebase Console. Refresh after the rules are live.</p><a class="btn" href="./index.html">Return to Fieldwork</a></section>`:'<section class="panel"><p>Loading Pokémon records…</p></section>';return}
  const mon=pokemon.find(m=>m.id===chosen);
@@ -1571,6 +1620,9 @@ root.addEventListener('click',async e=>{
  try{
   if(action==='party'||action==='storage'){chosen='';view=action;render()}
   if(action==='unlocks'&&GM_SITE){chosen='';view='unlocks';unlockDirty=false;render()}
+  if(action==='hp-migration'&&GM_SITE){chosen='';view='hp-migration';render()}
+  if(action==='hp-backup'&&GM_SITE){exportHpSnapshot(pokemon);say('HP backup downloaded. Keep it safe until the migration is verified.')}
+  if(action==='hp-migrate-run'&&GM_SITE){busy=true;await migrateAllHp()}
   if(action==='unlock-select'&&GM_SITE){if(!mayManageTrainer(b.dataset.uid))throw Error('Unknown Trainer.');ownerFilter=b.dataset.uid;chosen='';view='unlocks';unlockDirty=false;render()}
   if(action==='unlock-moves'&&GM_SITE){const mon=pokemon.find(p=>p.id===b.dataset.id&&p.ownerUid===ownerFilter);if(!mon)throw Error('Choose an assigned Pokémon.');busy=true;chosen=mon.id;unlockDirty=false;await openMoveManager();}
   if(action==='show')await selectMon(b.dataset.id);
@@ -1711,6 +1763,11 @@ root.addEventListener('input',e=>{
  }
 });
 root.addEventListener('change',e=>{
+ if(e.target.id==='hp-migrate-include-overrides'&&GM_SITE){
+  hpMigrateOverrides=e.target.checked;
+  render();
+  return;
+ }
  if(e.target.closest('#trainer-unlocks-form')){unlockDirty=true;return;}
  if(e.target.name==='megaSlug'&&view==='assign'){
   const form=e.target.closest('form'),mon=draft||pokemon.find(x=>x.id===editingId);
