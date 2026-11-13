@@ -1083,7 +1083,7 @@ function listView(){
  const slots=Array.from({length:6},(_,i)=>active.find(m=>Number(m.slot)===i+1));
  return `<div class="panel">${roster()}${view==='party'?`<div class="poke-grid">${slots.map((m,i)=>m?card(m):`<div class="empty">Slot ${i+1}<br>Empty</div>`).join('')}</div>`:
  `<div class="poke-grid">${storage.length?storage.map(card).join(''):'<div class="empty">No Pokémon in storage.</div>'}</div>`}</div>
- ${GM_SITE?`<section class="panel"><h3>Custom Pokémon & forms</h3><p>Create custom species once, then select them when assigning a Pokémon. Official species import from PokéAPI instead.</p><div class="actions"><button class="btn primary" data-act="custom-library">Browse Custom Content</button><button class="btn" data-act="custom">+ Register custom species</button><button class="btn" data-act="santara-catalog">+ Import Santara Content</button><button class="btn" data-act="artwork-library">Manage Artwork</button><button class="btn" data-act="define-move">+ Custom Move</button><button class="btn" data-act="define-ability">+ Custom Ability</button></div><p class="hint">${customs.length} custom species · ${customMoves.length} custom moves · ${customAbilities.length} custom abilities</p></section><section class="panel"><h3>V6 Pokémon Damage</h3><p>The calculator uses the standard Pokémon damage formula, perfect IVs and registered Santara custom forms. Existing Pokémon HP is kept unchanged until the GM recalculates and saves it.</p><div class="actions"><a class="btn primary" href="./damage-calculator.html">Open Damage Calculator</a><button class="btn" data-act="rules">Legacy V5.3 settings</button></div></section>` :''}${gmMechanicsUI()}${requestsSection()}`;
+ ${GM_SITE?`<section class="panel"><h3>Custom Pokémon & forms</h3><p>Create custom species once, then select them when assigning a Pokémon. Official species import from PokéAPI instead.</p><div class="actions"><button class="btn primary" data-act="custom-library">Browse Custom Content</button><button class="btn" data-act="custom">+ Register custom species</button><button class="btn" data-act="santara-catalog">+ Import Santara Content</button><button class="btn" data-act="artwork-library">Manage Artwork</button><button class="btn" data-act="define-move">+ Custom Move</button><button class="btn" data-act="define-ability">+ Custom Ability</button></div><p class="hint">${customs.length} custom species · ${customMoves.length} custom moves · ${customAbilities.length} custom abilities</p></section><section class="panel"><h3>V6 Pokémon Damage</h3><p>The calculator uses the standard Pokémon damage formula, perfect IVs and registered Santara custom forms. Existing Pokémon HP is kept unchanged until the GM recalculates and saves it.</p><div class="actions"><a class="btn primary" href="./damage-calculator.html">Open Damage Calculator</a></div></section>` :''}${gmMechanicsUI()}${requestsSection()}`;
 }
 
 function moveMemoryView(mon){
@@ -1228,7 +1228,7 @@ function detail(m){
   const cls=info?.classification||classifyMove(name,special||null);
   const tags=classificationLabels(cls).map(label=>`<span class="move-class">${esc(label)}</span>`).join('');
   const stats=info?.type?`${esc(info.type)} · BP ${info.power??'—'} · Accuracy ${info.accuracy??'—'}`:'BP / accuracy unavailable';
-  return `<div class="move"><b>${esc(name)}</b><div class="move-classifications">${tags}</div><p class="hint">${stats}</p>${info?.dice?`<p class="hint">Damage dice: ${esc(info.dice)}</p>`:''}${info?.description?`<p class="hint">${esc(info.description)}</p>`:''}</div>`;
+  return `<div class="move"><b>${esc(name)}</b><div class="move-classifications">${tags}</div><p class="hint">${stats}</p>${info?.description?`<p class="hint">${esc(info.description)}</p>`:''}</div>`;
  }).join(''):'<div class="hint">No moves assigned by the GM yet.</div>'}</div></section>
  ${controlsUI(m,unlocks(m.ownerUid),esc,option,megaCompatible(m,m.megaForm),megaAssignments[m.id]?.requiredStone||'')}<section class="panel"><h3>Battle tracking</h3><p class="hint">${shown.dynamax?`Dynamax HP: ${shown.currentHp}/${shown.maxHp}. Stored base HP: ${m.currentHp}/${m.maxHp}.`:"Mega Evolution does not alter tracked maximum HP (consistent with standard Mega HP rules)."}</p><form id="track-form" class="form-grid">
  <label class="field">Current HP <span class="hint">Maximum ${m.maxHp}</span><input name="currentHp" type="number" min="0" max="${m.maxHp}" required value="${m.currentHp}"></label>
@@ -1368,6 +1368,7 @@ function customForm(){
 function render(){
  if(!allowed)return guard();
  if(view==='unlocks'&&unlockDirty&&document.getElementById('trainer-unlocks-form'))return;
+ if(view==='hp-migration'&&hpMigrationActive)return;
  const chip=document.getElementById('user-chip');
  chip.textContent=GM_SITE?'GM authenticated':user.email||'Trainer';
  if(view==='assign'){
