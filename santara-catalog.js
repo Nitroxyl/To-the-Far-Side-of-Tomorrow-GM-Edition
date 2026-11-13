@@ -78,6 +78,7 @@ const megas=[
  ability('Tempest Crown','On Mega Evolution, summon Royal Tempest for 5 rounds: Electric-type damage increases by 30%, and Thunder and Hurricane cannot miss while the weather is active. A new weather effect replaces it.'),
  ability('Aurora Chorus','On Mega Evolution, set Aurora Veil on the user side for 5 turns without requiring snow. Use normal Aurora Veil protection and expiry rules. This is a weather-independent veil, not permanent terrain.'),
  ability('Molten Edge','Fire-type attacks and slicing attacks deal 30% more damage. An attack qualifying for both categories gets this boost only once.'),
+ ability('Aura Guard','Contact moves deal 50% less damage to this Pokémon. Non-contact moves are unaffected.'),
  ability('Skybreaker','Grants Ground-type STAB and allows Ground moves to strike Flying- and Levitate-protected targets without their immunity; other type weaknesses and resistances still apply.'),
  ability('System Override','On entry, choose an opponent to mark Exposed. While both remain active, suppress that target Ability, lower its Speed by 1 stage once, and increase damage it receives from this Pokémon Normal- and Electric-type attacks by 20%. Exposed ends if either Pokémon switches out. Working tabletop specification; exact Exposed value was not finalized in earlier drafts.'),
  ability('Siege Battery','NEW PROPOSAL: Electro Shot does not require a charging turn. The first time each round this Pokémon takes damage from an attack, increase its Sp. Attack by 1 stage (once per round, even for multihit attacks).'),
