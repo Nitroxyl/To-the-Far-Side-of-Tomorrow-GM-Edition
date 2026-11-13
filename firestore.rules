@@ -254,10 +254,26 @@ service cloud.firestore {
     }
 
     // GM controls which mechanics a trainer may use. Player reads only their own document.
+    // Legacy four-switch records remain readable and writable. Optional custom
+    // content arrays let the GM grant each trainer reveals independently.
     function gimmicksValid(d) {
-      return d.keys().hasOnly(['tera','mega','zMove','dynamax','updatedAt'])
+      return d.keys().hasOnly([
+          'tera','mega','zMove','dynamax','updatedAt',
+          'speciesUnlocks','megaFormUnlocks','moveUnlocks',
+          'abilityUnlocks','weatherUnlocks'
+        ])
         && d.keys().hasAll(['tera','mega','zMove','dynamax','updatedAt'])
         && d.tera is bool && d.mega is bool && d.zMove is bool && d.dynamax is bool
+        && d.get('speciesUnlocks',[]) is list
+        && d.get('speciesUnlocks',[]).size() <= 150
+        && d.get('megaFormUnlocks',[]) is list
+        && d.get('megaFormUnlocks',[]).size() <= 150
+        && d.get('moveUnlocks',[]) is list
+        && d.get('moveUnlocks',[]).size() <= 150
+        && d.get('abilityUnlocks',[]) is list
+        && d.get('abilityUnlocks',[]).size() <= 150
+        && d.get('weatherUnlocks',[]) is list
+        && d.get('weatherUnlocks',[]).hasOnly(['Calamitous Sun','Royal Tempest'])
         && d.updatedAt == request.time;
     }
     match /santara_trainer_gimmicks/{uid} {
