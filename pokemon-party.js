@@ -551,9 +551,17 @@ function gmProgressionPage(){
  const selectedTrainers=managedTrainers().map(t=>({
   uid:t.uid,label:trainerLabel(t.uid)+(t.authorizedRequester?' · authorized requester':'')
  }));
- return playerUnlockDashboard({uid:ownerFilter,trainerName:trainerLabel(ownerFilter),
+ const dashboard=playerUnlockDashboard({uid:ownerFilter,trainerName:trainerLabel(ownerFilter),
   trainers:selectedTrainers,unlocks:trainerUnlocks[ownerFilter],unlocksByUid:trainerUnlocks,
   options:gmProgressionOptions(),esc,option});
+ const owned=pokemon.filter(p=>p.ownerUid===ownerFilter);
+ const entries=owned.map(p=>'<div class="memory-move-row"><div><b>'+esc(p.nickname||p.speciesName)+'</b>'+
+  '<span class="hint"> · Lv '+esc(p.level)+' · '+esc(p.speciesName)+'</span></div>'+
+  '<button class="btn small" data-act="unlock-moves" data-id="'+esc(p.id)+'">Manage Move Memory</button></div>').join('');
+ return dashboard+(ownerFilter?'<section class="panel"><h3>Pokémon-specific unlocks</h3>'+
+  '<p class="hint">Move Memory controls what each Pokémon can actually learn and equip. Revealing a custom move above does not teach it.</p>'+
+  '<div class="memory-move-list">'+(entries||'<p class="hint">No Pokémon assigned yet.</p>')+'</div>'+
+  '<a class="btn" href="./inventory.html">Manage Trainer items and TMs</a></section>':'');
 }
 function megaChoiceFor(mon){
  const key=String(mon?.speciesKey||'').toLowerCase();
@@ -1548,6 +1556,7 @@ root.addEventListener('click',async e=>{
   if(action==='party'||action==='storage'){chosen='';view=action;render()}
   if(action==='unlocks'&&GM_SITE){chosen='';view='unlocks';unlockDirty=false;render()}
   if(action==='unlock-select'&&GM_SITE){if(!mayManageTrainer(b.dataset.uid))throw Error('Unknown Trainer.');ownerFilter=b.dataset.uid;chosen='';view='unlocks';unlockDirty=false;render()}
+  if(action==='unlock-moves'&&GM_SITE){const mon=pokemon.find(p=>p.id===b.dataset.id&&p.ownerUid===ownerFilter);if(!mon)throw Error('Choose an assigned Pokémon.');busy=true;chosen=mon.id;unlockDirty=false;await openMoveManager();}
   if(action==='show')await selectMon(b.dataset.id);
   if(action==='manage-moves'){busy=true;await openMoveManager()}
   if(action==='memory-back'){view='party';render()}
