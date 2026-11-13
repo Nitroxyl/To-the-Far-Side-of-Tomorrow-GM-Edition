@@ -552,7 +552,7 @@ function gmProgressionPage(){
   uid:t.uid,label:trainerLabel(t.uid)+(t.authorizedRequester?' · authorized requester':'')
  }));
  return playerUnlockDashboard({uid:ownerFilter,trainerName:trainerLabel(ownerFilter),
-  trainers:selectedTrainers,unlocks:trainerUnlocks[ownerFilter],
+  trainers:selectedTrainers,unlocks:trainerUnlocks[ownerFilter],unlocksByUid:trainerUnlocks,
   options:gmProgressionOptions(),esc,option});
 }
 function megaChoiceFor(mon){
@@ -1547,6 +1547,7 @@ root.addEventListener('click',async e=>{
  try{
   if(action==='party'||action==='storage'){chosen='';view=action;render()}
   if(action==='unlocks'&&GM_SITE){chosen='';view='unlocks';unlockDirty=false;render()}
+  if(action==='unlock-select'&&GM_SITE){if(!mayManageTrainer(b.dataset.uid))throw Error('Unknown Trainer.');ownerFilter=b.dataset.uid;chosen='';view='unlocks';unlockDirty=false;render()}
   if(action==='show')await selectMon(b.dataset.id);
   if(action==='manage-moves'){busy=true;await openMoveManager()}
   if(action==='memory-back'){view='party';render()}
