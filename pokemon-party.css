@@ -111,3 +111,18 @@ label.gimmick-tile{flex-direction:row;align-items:flex-start}
 .unlock-table .unlock-cell{text-align:center;font-variant-numeric:tabular-nums}
 .unlock-table td:first-child{max-width:210px;overflow-wrap:anywhere}
 .unlock-table tr:last-child td{border-bottom:0}
+
+/* GM pre-release V6 HP migration with safe previews. */
+.hp-migrate-stats{display:flex;flex-wrap:wrap;gap:8px;margin:15px 0}
+.hp-migrate-stats>*{padding:8px 11px;border:1px solid #3b5a68;background:#162e3a;border-radius:9px;font-size:12px}
+.hp-migrate-check{display:flex;align-items:flex-start;gap:10px;margin:12px 0;padding:13px;background:#352b25;border:1px solid #ae7f50;border-radius:11px;cursor:pointer}
+.hp-migrate-check input[type=checkbox]{min-width:19px;height:19px;margin:2px 0 0;accent-color:var(--teal)}
+.hp-migrate-check b{display:block;margin-bottom:4px}
+.hp-migrate-check small{display:block;color:#e4cbb4}
+.hp-migrate-actions{display:flex;gap:11px;flex-wrap:wrap;margin:18px 0}
+.hp-migrate-table-wrap{overflow-x:auto;width:100%;margin-top:18px}
+.hp-migrate-table{width:100%;border-collapse:collapse;min-width:660px}
+.hp-migrate-table th,.hp-migrate-table td{padding:10px 12px;text-align:left;border-bottom:1px solid #3a5463;font-size:12px}
+.hp-migrate-table th{color:var(--muted)}
+.hp-migrate-table tr:last-child td{border:0}
+@media(max-width:650px){.hp-migrate-actions .btn{width:100%}}
