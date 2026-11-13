@@ -3,6 +3,13 @@ on:
   push:
     paths:
       - 'santara-damage-core.js'
+      - 'santara-player-unlocks.js'
+      - 'santara-player-unlocks-ui.js'
+      - 'pokemon-party.js'
+      - 'pokemon-party.css'
+      - 'firestore.rules'
+      - 'tests/santara-trainer-unlocks.test.mjs'
+      - 'tests/santara-player-unlocks-ui.test.mjs'
       - 'santara-damage-rules.js'
       - 'tests/santara-custom-mechanics.test.mjs'
       - 'tests/santara-gm-custom-catalog.test.mjs'
@@ -28,4 +35,4 @@ jobs:
       - name: Install official calculator package
         run: npm install --no-save --no-package-lock @smogon/calc@0.12.0 jsdom@26.1.0
       - name: Run damage adapter tests
-        run: node --test tests/santara-gm-custom-catalog.test.mjs tests/santara-custom-mechanics.test.mjs tests/santara-damage-core.test.mjs tests/santara-browser-bundles.test.mjs tests/santara-damage-layout.test.mjs
+        run: node --test tests/santara-trainer-unlocks.test.mjs tests/santara-player-unlocks-ui.test.mjs tests/santara-gm-custom-catalog.test.mjs tests/santara-custom-mechanics.test.mjs tests/santara-damage-core.test.mjs tests/santara-browser-bundles.test.mjs tests/santara-damage-layout.test.mjs
