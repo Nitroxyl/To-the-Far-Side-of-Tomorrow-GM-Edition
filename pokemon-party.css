@@ -86,3 +86,20 @@ label.gimmick-tile{flex-direction:row;align-items:flex-start}
 .memory-locked-list{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:20px}
 .memory-locked-item{display:flex;flex-direction:column;gap:2px;padding:7px 10px;color:var(--text);background:#172b38;border:1px dashed #466273;border-radius:9px;font-size:12px}
 .memory-locked-item small{color:var(--muted);font-size:10px}
+
+/* GM player progression and per-trainer reveal controls */
+.unlock-trainer-picker{max-width:480px;margin:16px 0 4px}
+.unlock-group{border:1px solid #3a5d6a;border-radius:12px;margin:12px 0;background:#102736;padding:12px 15px}
+.unlock-group summary{display:flex;justify-content:space-between;align-items:center;gap:12px;cursor:pointer;font-weight:750;font-size:15px}
+.unlock-group summary::marker{color:var(--teal)}
+.unlock-group summary .chip{white-space:nowrap;flex-shrink:0}
+.unlock-group>p{margin:10px 0}
+.unlock-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px}
+.unlock-row{display:flex;align-items:flex-start;gap:9px;border:1px solid #345263;border-radius:10px;padding:9px 11px;color:var(--text);background:#162d3a;font-size:13px;cursor:pointer}
+.unlock-row:has(input:checked){border-color:var(--teal);background:#1a4444}
+.unlock-row input[type=checkbox]{width:18px;height:18px;min-width:18px;flex:0 0 18px;padding:0;margin:1px 0 0;accent-color:var(--teal)}
+.unlock-row b{display:block;font-weight:650;overflow-wrap:anywhere}
+.unlock-row small{display:block;color:var(--muted);font-size:11px}
+.unlock-savebar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;border-top:1px solid #3c5868;margin-top:19px;padding-top:17px}
+.unlock-savebar .btn{min-width:210px}
+@media(max-width:700px){.unlock-options{grid-template-columns:1fr}.unlock-group{padding:11px}.unlock-savebar .btn{width:100%}}
