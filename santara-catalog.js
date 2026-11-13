@@ -50,6 +50,8 @@ const megas=[
  mega('Mega Charizard Z','charizard',stats(78,63,72,200,70,151),['fire','dragon'],"Kingdom's End"),
  mega('Mega Charizard X','charizard',stats(78,160,120,70,96,110),['fire','dragon'],'Tough Claws','charizard-mega-x'),
  mega('Mega Skarmory','skarmory',stats(65,150,130,20,95,105),['steel','flying'],'Sharpness','skarmory-mega'),
+ mega('Mega Garchomp Z','garchomp',stats(108,95,90,170,85,152),['dragon'],'Skybreaker','garchomp-mega-z'),
+ mega('Mega Absol Z','absol',stats(65,165,75,45,64,151),['dark','ghost'],'Foretold Ruin','absol-mega-z'),
  mega('Mega Lycanroc Dusk','lycanroc-dusk',stats(75,157,85,55,80,135),['rock','dark'],'Tough Claws'),
  mega('Mega Dragapult','dragapult',stats(88,135,115,140,110,112),['dragon','ghost'],'Mega Launcher'),
  mega('Mega Ceruledge','ceruledge',stats(75,160,110,60,120,100),['fire','ghost'],'Sharpness'),
@@ -79,6 +81,7 @@ const megas=[
  ability('Aurora Chorus','On Mega Evolution, set Aurora Veil on the user side for 5 turns without requiring snow. Use normal Aurora Veil protection and expiry rules. This is a weather-independent veil, not permanent terrain.'),
  ability('Molten Edge','Fire-type attacks and slicing attacks deal 30% more damage. An attack qualifying for both categories gets this boost only once.'),
  ability('Aura Guard','Contact moves deal 50% less damage to this Pokémon. Non-contact moves are unaffected.'),
+ ability('Foretold Ruin','Slicing moves deal 50% more damage; Attack cannot be lowered by opponents. This does not increase the power of non-slicing moves.'),
  ability('Skybreaker','Grants Ground-type STAB and allows Ground moves to strike Flying- and Levitate-protected targets without their immunity; other type weaknesses and resistances still apply.'),
  ability('System Override','On entry, choose an opponent to mark Exposed. While both remain active, suppress that target Ability, lower its Speed by 1 stage once, and increase damage it receives from this Pokémon Normal- and Electric-type attacks by 20%. Exposed ends if either Pokémon switches out. Working tabletop specification; exact Exposed value was not finalized in earlier drafts.'),
  ability('Siege Battery','NEW PROPOSAL: Electro Shot does not require a charging turn. The first time each round this Pokémon takes damage from an attack, increase its Sp. Attack by 1 stage (once per round, even for multihit attacks).'),
@@ -89,6 +92,7 @@ const megas=[
  move("Schrade's End",'fire','Special',180,100,'Mega Charizard Z only. Charge for one full round, then fire a directional cone. Once per battle; resolve damage normally with Calamitous Sun if active. It does not consume HP.'),
  move('Psycannon','psychic','Special',120,100,'After attacking, lower the user Speed by 1 stage.'),
  move('Razor Tempest','flying','Physical',75,100,'Mega Skarmory signature: ranged, non-contact slicing attack. 15 PP.', '', {contact:false,traits:['slicing'],allowedSpeciesKeys:['skarmory'],requiredMegaSlug:'skarmory-mega'}),
+ move('Calamity Slash','ghost','Physical',85,100,'Mega Absol Z signature: contact slicing attack that ignores positive target Defense stat stages.', '', {contact:true,traits:['slicing'],allowedSpeciesKeys:['absol'],requiredMegaSlug:'absol-mega-z'}),
  move('Machbreak','dragon','Special',95,100,'Mega Garchomp Z signature: spread Dragon attack that ignores Steel resistance, but not Fairy immunity.', '', {target:'allAdjacentFoes',allowedSpeciesKeys:['garchomp'],requiredMegaSlug:'garchomp-mega-z'}),
  move('Aura Lance','fighting','Special',95,100,'Mega Lucario Z only. A concentrated aura projectile. No secondary effect; does not bypass Protect. Pulse move. 10 PP.','',{contact:false,target:'normal',traits:['pulse']})
 ];
@@ -108,7 +112,7 @@ const drafts=[
 
 export const SANTARA_CATALOG_GROUPS=Object.freeze([
  {id:'fossils',label:'Original fossils',description:'4 original species, Apex Predator and three fossil signature moves. Approved Trainers can read these definitions.'},
- {id:'megas',label:'Reworked Mega Evolutions',description:'22 Mega forms, signature abilities and attacks. Mega forms are GM-only, but imported move and ability definitions are player-readable.'},
+ {id:'megas',label:'Reworked Mega Evolutions',description:'24 Mega forms, signature abilities and attacks. Mega forms are GM-only, but imported move and ability definitions are player-readable.'},
  {id:'story',label:'Story and alternate forms',description:'Rotom-Server, Yveltal Eclipse and Root Access. Import only when spoilers are acceptable.'},
  {id:'drafts',label:'Provisional signature moves',description:'Glitch Pulse and Nihil Light are explicitly marked as working drafts, not finalized campaign rules.'}
 ]);
