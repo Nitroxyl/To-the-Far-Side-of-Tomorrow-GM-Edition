@@ -37,7 +37,7 @@ test('GM preset definitions are included even before import',()=>{
 test('GM party implements dedicated route and trainer-specific Firestore document',()=>{
  const source=readFileSync(new URL('../pokemon-party.js',import.meta.url),'utf8');
  assert.ok(source.includes("if(view==='unlocks'&&GM_SITE)"));
- assert.ok(source.includes("data-act=\\"unlocks\\"")||source.includes('data-act="unlocks"'));
+ assert.ok(source.includes('data-act="unlocks"'));
  assert.ok(source.includes("doc(store,'santara_trainer_gimmicks',ownerFilter)"));
  assert.ok(source.includes("progressionPayload(new FormData(form),gmProgressionOptions())"));
 });
