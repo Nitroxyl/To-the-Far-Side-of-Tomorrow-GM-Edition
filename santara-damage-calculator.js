@@ -2,14 +2,13 @@ import {initializeApp,getApps,getApp} from 'https://www.gstatic.com/firebasejs/1
 import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,signInWithPopup,GoogleAuthProvider} from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js';
 import {getFirestore,getDocs,collection,query,where} from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js';
 import {applyMegaOverlays} from './pokemon-mega-assignments.js';
-import {computeDamage,titleType} from './santara-damage-core.js?v=custom-20261114-4';
+import {computeDamage,titleType} from './santara-damage-core.js?v=ev-free-20261114-1';
 
 const gm=window.SANTARA_POKEMON_EDITION==='gm',host=document.querySelector('#calc-app');
 const chip=document.querySelector('#user-chip'),feedback=document.querySelector('#calc-feedback');
 const config=window.SANTARA_FIREBASE_CONFIG,escape=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const canon=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
 const option=(key,label,selected)=>'<option value="'+escape(key)+'"'+(key===selected?' selected':'')+'>'+escape(label)+'</option>';
-const STATS=[['hp','HP'],['atk','Attack'],['def','Defense'],['spa','Sp. Atk'],['spd','Sp. Def'],['spe','Speed']];
 const TYPE_NAMES=['Normal','Fire','Water','Electric','Grass','Ice','Fighting','Poison','Ground','Flying','Psychic','Bug','Rock','Ghost','Dragon','Dark','Steel','Fairy'];
 let app,auth,store,session,choices=[],byKey=new Map(),moves=[],abilities=[],items=[],natureNames=[],customMoves=[],customAbilities=[],loaded=false;
 function msg(text){feedback.textContent=text||'';}
@@ -155,9 +154,9 @@ function sideMarkup(side,title,selected){
   toggleMarkup(side+'-dmax','Dynamax')+'</div>'+
   '<label class="field calc-tera-type" id="'+side+'-tera-wrap" hidden>Tera type<select id="'+side+'-teratype">'+typeOptions('Normal')+'</select></label>'+
   '</div></div>'+
-  '<details class="calc-advanced"><summary>EVs and stat stages</summary><p class="calc-muted">Every IV is fixed to 31. EVs default to 0 (252 per stat, 510 total).</p>'+
-  '<div class="calc-ev">'+STATS.map(([key,label])=>'<label class="field">'+label+' EV<input id="'+side+'-ev-'+key+'" type="number" min="0" max="252" value="0"></label>').join('')+'</div>'+
-  '<div class="calc-ev">'+[['atk','Attack'],['def','Defense'],['spa','Sp. Atk'],['spd','Sp. Def']].map(([key,label])=>'<label class="field">'+label+' stage<input id="'+side+'-boost-'+key+'" type="number" min="-6" max="6" value="0"></label>').join('')+'</div></details>'+
+  '<details class="calc-advanced"><summary>Stat stages</summary><p class="calc-muted">Santara uses fixed 31 IVs and 0 EVs for every Pokémon. Only temporary battle stat changes need adjusting.</p>'+
+
+  '<div class="calc-stage-grid">'+[['atk','Attack'],['def','Defense'],['spa','Sp. Atk'],['spd','Sp. Def']].map(([key,label])=>'<label class="field">'+label+' stage<input id="'+side+'-boost-'+key+'" type="number" min="-6" max="6" value="0"></label>').join('')+'</div></details>'+
   '</section>';
 }
 function quickMarkup(){
@@ -200,7 +199,6 @@ function readSide(side){
     hpPercent:readNum(side+'-hp',100),status:readStr(side+'-status'),
     mega:el(side+'-mega').checked,tera:el(side+'-tera').checked,
     teraType:readStr(side+'-teratype'),dynamax:el(side+'-dmax').checked,
-    evs:Object.fromEntries(STATS.map(([key])=>[key,readNum(side+'-ev-'+key)])),
     boosts:Object.fromEntries(['atk','def','spa','spd'].map(key=>[key,readNum(side+'-boost-'+key)]))
   };
 }
@@ -229,7 +227,6 @@ function refreshSide(side) {
   updateTeraVisibility(side);
   el(side+'-teratype').value=titleType(source.teraType||source.types?.[0]||'Normal');
   el(side+'-dmax').checked=!!source.dynamaxTurns;
-  for(const [key] of STATS)el(side+'-ev-'+key).value='0';
   for(const key of ['atk','def','spa','spd'])el(side+'-boost-'+key).value='0';
   if(side==='a'){
     const preferred=(source.moves||[]).find(name=>{
