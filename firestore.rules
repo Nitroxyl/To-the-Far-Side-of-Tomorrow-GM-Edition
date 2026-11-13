@@ -65,6 +65,23 @@ service cloud.firestore {
         && request.resource.data.updatedAt == request.time;
     }
 
+    // Strictly GM-private campaign notebook. No approved Trainer access.
+    // The public GitHub Pages source contains no unreleased starter story data.
+    match /santara_gm_private_campaign/{documentId} {
+      allow get: if gm() && documentId == 'current';
+      allow list, delete: if false;
+      allow create, update: if gm() && documentId == 'current'
+        && request.resource.data.keys().hasOnly(['data','updatedAt'])
+        && request.resource.data.keys().hasAll(['data','updatedAt'])
+        && request.resource.data.data is map
+        && request.resource.data.data.get('sites',null) is list
+        && request.resource.data.data.get('quests',null) is list
+        && request.resource.data.data.get('wildlife',null) is list
+        && request.resource.data.data.get('sessions',null) is list
+        && request.resource.data.data.get('brief',null) is map
+        && request.resource.data.updatedAt == request.time;
+    }
+
     // A verified player can request approval for their own Firebase UID.
     match /santara_access_requests/{uid} {
       allow get: if gm() || (verified() && request.auth.uid == uid);
