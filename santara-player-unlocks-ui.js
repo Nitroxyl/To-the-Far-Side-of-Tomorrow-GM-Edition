@@ -57,7 +57,22 @@ function groupUI(category,entries,unlock,esc){
  return '<details class="unlock-group"'+(checked?' open':'')+'><summary><span>'+esc(meta.title)+'</span><span class="chip">'+checked+' / '+entries.length+'</span></summary>'+
   '<p class="hint">'+esc(meta.desc)+'</p><div class="unlock-options">'+(rows||'<p class="hint">No registered content to unlock yet.</p>')+'</div></details>';
 }
-export function playerUnlockDashboard({uid,trainerName,trainers,unlocks,options,esc,option}){
+function overviewUI(trainers,selectedUid,grants,esc){
+ if(!trainers?.length)return '';
+ const headings=['tera','zMove','mega','dynamax'];
+ const body=trainers.map(t=>{
+  const data=readTrainerUnlocks(grants?.[t.uid]);
+  const revealed=Object.values(UNLOCK_LIST_FIELDS).reduce((n,k)=>n+data[k].length,0);
+  return '<tr><td><b>'+esc(t.label||t.uid)+'</b></td>'+
+   headings.map(k=>'<td class="unlock-cell">'+(data[k]?'✓':'—')+'</td>').join('')+
+   '<td class="unlock-cell">'+revealed+'</td>'+
+   '<td><button class="btn small'+(t.uid===selectedUid?' primary':'')+'" type="button" data-act="unlock-select" data-uid="'+esc(t.uid)+'">'+
+   (t.uid===selectedUid?'Selected':'Manage')+'</button></td></tr>';
+ }).join('');
+ return '<section class="panel"><div class="toolbar"><h3>Trainer progression overview</h3><span class="hint">Saved unlocks across the party</span></div>'+
+  '<div class="unlock-table-scroll"><table class="unlock-table"><thead><tr><th>Trainer</th><th>Tera</th><th>Z</th><th>Mega</th><th>Dyna</th><th>Reveals</th><th></th></tr></thead><tbody>'+body+'</tbody></table></div></section>';
+}
+export function playerUnlockDashboard({uid,trainerName,trainers,unlocks,unlocksByUid,options,esc,option}){
  const doc=readTrainerUnlocks(unlocks);
  const list=options||makeUnlockOptions({});
  const chosenName=trainerName||'Trainer';
@@ -67,7 +82,7 @@ export function playerUnlockDashboard({uid,trainerName,trainers,unlocks,options,
    '<h2>Player Unlocks</h2><p class="hint">Control what each player can use or discover independently. Changes are saved only when you press Save.</p></div>'+
    '<div class="tabs"><button class="btn" data-act="party" type="button">← Back to Party</button></div></div>'+
    '<label class="field unlock-trainer-picker">Select Trainer<select id="unlock-trainer-filter">'+
-   option('','Choose a trainer…',uid)+trainerOptions+'</select></label></section>'+
+   option('','Choose a trainer…',uid)+trainerOptions+'</select></label></section>'+overviewUI(trainers,uid,unlocksByUid,esc)+
    (!uid?'<section class="panel"><p>Choose a Trainer to manage their unlocks.</p></section>':
    '<form id="trainer-unlocks-form">'+
    '<section class="panel"><div class="toolbar"><h3>'+esc(chosenName)+'</h3><span class="chip">'+
