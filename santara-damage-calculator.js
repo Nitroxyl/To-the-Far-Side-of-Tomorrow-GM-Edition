@@ -6,6 +6,7 @@ import {SANTARA_MEGA_PREVIEWS,officialMegaPreviews,eligibleMegaForms,requiredSto
 import {computeDamage,titleType} from './santara-damage-core.js?v=ev-free-20261114-1';
 
 const gm=window.SANTARA_POKEMON_EDITION==='gm',host=document.querySelector('#calc-app');
+const playerProgression={mega:true,megaFormUnlocks:[]};
 const chip=document.querySelector('#user-chip'),feedback=document.querySelector('#calc-feedback');
 const config=window.SANTARA_FIREBASE_CONFIG,escape=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const canon=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
@@ -364,13 +365,19 @@ async function reloadData(){
     customMoves=combineByName(presets.moves,m.docs.map(d=>({slug:d.id,...d.data()})));
     customAbilities=combineByName(presets.abilities,ab.docs.map(d=>({slug:d.id,...d.data()})));
     const customSpecies=combineByName(presets.species,c.docs.map(d=>({slug:d.id,...d.data()})));
-    const megaForms=combineByName(presets.megas,liveMega);
     const gen=engine().Generations.get(9);
+    megaForms=combineByName(
+      [...officialMegaPreviews(gen),...SANTARA_MEGA_PREVIEWS,...presets.megas],liveMega);
     choices=makeChoices(gen,records,customSpecies,megaForms);
     byKey=new Map(choices.map(x=>[x.key,x]));
     moves=[...new Set([...customMoves.map(x=>x.name),...[...gen.moves].map(x=>x.name)])].sort((a,b)=>a.localeCompare(b));
     abilities=[...new Set([...customAbilities.map(x=>x.name),...[...gen.abilities].map(x=>x.name)])].sort();
-    items=[...gen.items].map(x=>x.name).sort();
+    const visibleMegas=gm?megaForms:
+      megaForms.filter(form=>playerProgression.mega&&(!isStoryMega(form)||
+        playerProgression.megaFormUnlocks?.some(slug=>canon(slug)===canon(form.slug))||
+        records.some(mon=>canon(mon.megaForm?.slug)===canon(form.slug))));
+    items=[...new Set([...gen.items].map(x=>x.name).concat(
+      megaStoneNames(visibleMegas,records)))].sort((a,b)=>a.localeCompare(b));
     natureNames=[...gen.natures].map(x=>x.name).sort();
     loaded=true;draw();
   }catch(e){host.innerHTML='<section class="panel"><h2>Pokémon records could not load</h2><p>'+escape(e.message||String(e))+'</p><p>Sign into an approved Santara account and verify the published Firebase rules.</p><button class="btn" id="damage-reload">Retry</button></section>';msg('Cannot load calculator data.');}
