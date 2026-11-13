@@ -3,6 +3,8 @@ on:
   push:
     paths:
       - 'santara-damage-core.js'
+      - 'santara-damage-rules.js'
+      - 'tests/santara-custom-mechanics.test.mjs'
       - 'santara-damage-calculator.js'
       - 'pokemon-math.js'
       - 'tests/santara-damage-core.test.mjs'
@@ -24,4 +26,4 @@ jobs:
       - name: Install official calculator package
         run: npm install --no-save --no-package-lock @smogon/calc@0.12.0 jsdom@26.1.0
       - name: Run damage adapter tests
-        run: node --test tests/santara-damage-core.test.mjs tests/santara-browser-bundles.test.mjs tests/santara-damage-layout.test.mjs
+        run: node --test tests/santara-custom-mechanics.test.mjs tests/santara-damage-core.test.mjs tests/santara-browser-bundles.test.mjs tests/santara-damage-layout.test.mjs
