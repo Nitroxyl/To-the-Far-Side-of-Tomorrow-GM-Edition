@@ -1053,7 +1053,8 @@ async function migrateAllHp(){
  hpMigrationActive=true;
  let updated=0,unchanged=0,failed=[];
  try{
-  for(const row of rows){
+  for(const [index,row] of rows.entries()){
+   if(index%5===0)say('Migrating V6 HP: '+(index+1)+' / '+rows.length+' Pokémon…');
    if(!row.id)continue;
    try{
     await runTransaction(store,async transaction=>{
