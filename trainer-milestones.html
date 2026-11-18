@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b1019">
+<title>Trainer Milestones · Santara GM</title>
+<script src="./firebase-config.js"></script>
+<style>
+:root{color-scheme:dark;--bg:#0b1019;--panel:#162435;--line:#34485d;--ink:#e9f4f6;--muted:#adc2ca;--teal:#77d7c0}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 85% 0,#204151 0,transparent 48%),var(--bg);font:15px/1.5 system-ui,sans-serif;color:var(--ink)}
+a{color:inherit;text-decoration:none}.bar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:18px;padding:19px max(18px,calc((100vw - 1150px)/2));background:#101e2b;border-bottom:1px solid var(--line)}
+.brand{letter-spacing:2px;font-weight:900}.bar nav{display:flex;gap:17px;flex-wrap:wrap;font-size:13px;color:#bed6dc}.bar a:hover{color:var(--teal)}
+.shell{max-width:1050px;margin:0 auto;padding:36px 22px 56px}.eyebrow{color:#9cd4cc;letter-spacing:2px;font-weight:800;font-size:11px}
+h1{font-size:clamp(28px,4vw,42px);margin:4px 0 8px}.lead{color:var(--muted);max-width:760px;margin:0 0 26px}
+.panel{border:1px solid var(--line);background:var(--panel);border-radius:18px;padding:23px;margin-top:18px}
+.panel h2{font-size:19px;margin:0 0 10px}.hint{color:var(--muted);font-size:12px}.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:17px}
+label.field{display:grid;gap:7px;color:#cfe3e5;font-size:13px;font-weight:700}
+select,input[type=number]{background:#0d1c2b;color:#effaf9;border:1px solid #4d6978;border-radius:9px;padding:12px;font:inherit;width:100%}
+.check{display:flex;gap:10px;align-items:center;background:#1d3341;padding:12px;border:1px solid #395c65;border-radius:10px}
+.check input{width:18px;height:18px;accent-color:#70d2bd}
+.btn{border:0;border-radius:9px;padding:12px 19px;background:#66cfba;color:#082629;font:inherit;font-weight:850;cursor:pointer}
+.btn:disabled{opacity:.52;cursor:wait}.note{color:#b6d1d7;font-size:13px;line-height:1.6}
+#status{min-height:22px;color:#c6e7da;margin:14px 0}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:15px}
+.reward{padding:12px;background:#102231;border:1px solid #2e5060;border-radius:11px}
+.reward strong{display:block;font-size:13px}.reward small{display:block;color:#aec6d2;margin-top:5px;font-size:11px}
+.reward.earned{border-color:#4ca995;background:#173739}.reward.next{border-color:#d6b877}
+@media(max-width:650px){.fields,.grid{grid-template-columns:1fr}.shell{padding:24px 14px}.panel{padding:17px}}
+</style>
+</head>
+<body>
+<header class="bar"><a class="brand" href="./index.html">✦ SANTARA · GM</a>
+<nav><a href="./index.html">GM Dashboard</a><a href="./pokemon-party.html?tab=unlocks">Player Unlocks</a><a href="./pokemon-party.html">Pokémon Records</a><a href="./account-access.html">Account Access</a></nav></header>
+<main class="shell"><div class="eyebrow">SANTARA REGION · GAME MASTER</div><h1>Trainer Milestones</h1>
+<p class="lead">Track each Trainer’s completed Gyms and Championship status. These GM-only records determine how many skill proficiencies and Trainer Talents the player can save on their Character Sheet.</p>
+<div id="milestone-root"><section class="panel">Checking your GM access…</section></div>
+<p id="status" role="status" aria-live="polite"></p></main>
+<script type="module" src="./trainer-milestones.js?v=gym-unlocks-20261118-1"></script>
+</body></html>
