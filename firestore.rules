@@ -110,19 +110,74 @@ service cloud.firestore {
       allow delete: if gm();
     }
 
-    // Optional roleplay-only profile attached to a Trainer Passport.
-    // Legacy cards without a dossier remain valid.
+    // GM-owned milestone ledger: players read their progress, but cannot award Gym clears.
+    match /santara_trainer_progress/{uid} {
+      allow get: if member();
+      allow list: if gm();
+      allow create, update: if gm()
+        && request.resource.data.keys().hasOnly(['gymCount','champion','updatedAt'])
+        && request.resource.data.keys().hasAll(['gymCount','champion','updatedAt'])
+        && request.resource.data.gymCount is int
+        && request.resource.data.gymCount >= 0
+        && request.resource.data.gymCount <= 8
+        && request.resource.data.champion is bool
+        && (!request.resource.data.champion || request.resource.data.gymCount == 8)
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if gm();
+    }
+    function trainerGymCount(uid) {
+      return exists(/databases/$(database)/documents/santara_trainer_progress/$(uid))
+        ? get(/databases/$(database)/documents/santara_trainer_progress/$(uid)).data.gymCount : 0;
+    }
+    function trainerChampion(uid) {
+      return exists(/databases/$(database)/documents/santara_trainer_progress/$(uid))
+        && get(/databases/$(database)/documents/santara_trainer_progress/$(uid)).data.champion == true;
+    }
+    function trainerSkillLimit(uid) {
+      return trainerGymCount(uid) >= 6 ? 5 : trainerGymCount(uid) >= 2 ? 4 : 3;
+    }
+    function trainerTalentLimit(uid) {
+      return (trainerGymCount(uid) >= 7 ? 3 : trainerGymCount(uid) >= 4 ? 2 : trainerGymCount(uid) >= 1 ? 1 : 0)
+        + (trainerChampion(uid) ? 1 : 0);
+    }
+    function trainerAbilityScoresValid(a) {
+      return a is map
+        && a.keys().hasOnly(['str','dex','con','int','wis','cha'])
+        && a.keys().hasAll(['str','dex','con','int','wis','cha'])
+        && a.str is int && a.dex is int && a.con is int
+        && a.int is int && a.wis is int && a.cha is int
+        && (
+          (a.str == 0 && a.dex == 0 && a.con == 0 && a.int == 0 && a.wis == 0 && a.cha == 0)
+          || [a.str,a.dex,a.con,a.int,a.wis,a.cha].hasAll([9,10,11,12,13,14])
+        );
+    }
+    function trainerTalentsValid(t,uid) {
+      return t is list
+        && t.size() <= trainerTalentLimit(uid)
+        && t.size() == t.toSet().size()
+        && t.hasOnly([
+          'trailblazer','keen-observer','always-prepared','field-medic','silent-approach',
+          'species-tracker','rare-encounter-specialist','efficient-training','natural-handler','legendary-pursuer',
+          'battle-analyst','speed-reader','damage-spotter','contingency-call','safe-pivot'
+        ])
+        && t.toSet().intersection(['battle-analyst','speed-reader','damage-spotter','contingency-call','safe-pivot'].toSet()).size()
+           <= (trainerChampion(uid) ? 2 : 1)
+        && (trainerGymCount(uid) >= 4
+          || !t.hasAny(['battle-analyst','speed-reader','damage-spotter','contingency-call','safe-pivot']))
+        && (trainerGymCount(uid) >= 5 || !t.hasAny(['legendary-pursuer']));
+    }
+    // Existing legacy four-stat profiles remain readable and valid until edited.
+    // A modern dossier adds six D&D scores, one milestone ability boost, and talent IDs.
     function trainerDossierValid(s) {
       return s is map
         && s.keys().hasOnly([
           'age','occupation','beforeJourney','motivation','goal','strength','flaw',
           'townConnection','trainerConnections','npcConnections','partnerStory',
-          'attributes','skills'
+          'attributes','abilityScores','abilityBoost','skills','talents'
         ])
         && s.keys().hasAll([
           'age','occupation','beforeJourney','motivation','goal','strength','flaw',
-          'townConnection','trainerConnections','npcConnections','partnerStory',
-          'attributes','skills'
+          'townConnection','trainerConnections','npcConnections','partnerStory','skills'
         ])
         && s.age is string && s.age.size() <= 8
         && s.occupation is string && s.occupation.size() <= 64
@@ -135,19 +190,33 @@ service cloud.firestore {
         && s.trainerConnections is string && s.trainerConnections.size() <= 500
         && s.npcConnections is string && s.npcConnections.size() <= 500
         && s.partnerStory is string && s.partnerStory.size() <= 500
-        && s.attributes is map
-        && s.attributes.keys().hasOnly(['physique','agility','intellect','presence'])
-        && s.attributes.keys().hasAll(['physique','agility','intellect','presence'])
-        && s.attributes.physique is int && s.attributes.physique >= -1 && s.attributes.physique <= 2
-        && s.attributes.agility is int && s.attributes.agility >= -1 && s.attributes.agility <= 2
-        && s.attributes.intellect is int && s.attributes.intellect >= -1 && s.attributes.intellect <= 2
-        && s.attributes.presence is int && s.attributes.presence >= -1 && s.attributes.presence <= 2
-        && s.skills is list && s.skills.size() <= 3
+        && (!s.keys().hasAny(['attributes']) || (
+          s.attributes is map
+          && s.attributes.keys().hasOnly(['physique','agility','intellect','presence'])
+          && s.attributes.keys().hasAll(['physique','agility','intellect','presence'])
+          && s.attributes.physique is int && s.attributes.physique >= -1 && s.attributes.physique <= 2
+          && s.attributes.agility is int && s.attributes.agility >= -1 && s.attributes.agility <= 2
+          && s.attributes.intellect is int && s.attributes.intellect >= -1 && s.attributes.intellect <= 2
+          && s.attributes.presence is int && s.attributes.presence >= -1 && s.attributes.presence <= 2
+        ))
+        && (!s.keys().hasAny(['abilityScores']) || trainerAbilityScoresValid(s.abilityScores))
+        && (!s.keys().hasAny(['abilityBoost'])
+          || (s.abilityBoost is string
+            && (s.abilityBoost == '' || (
+              trainerGymCount(request.auth.uid) >= 5
+              && s.abilityBoost in ['str','dex','con','int','wis','cha']
+              && s.abilityScores[s.abilityBoost] > 0
+              && s.abilityScores[s.abilityBoost] < 16
+            ))))
+        && s.skills is list && s.skills.size() <= trainerSkillLimit(request.auth.uid)
+        && s.skills.size() == s.skills.toSet().size()
         && s.skills.hasOnly([
-          'Athletics','Acrobatics','Stealth','Perception','Investigation','Survival',
-          'Pokémon Handling','Pokémon Knowledge','Technology','Medicine',
-          'Persuasion','Deception'
-        ]);
+          'Athletics','Acrobatics','Sleight of Hand','Stealth',
+          'History','Investigation','Nature','Pokémon Knowledge','Technology',
+          'Insight','Medicine','Perception','Pokémon Handling','Survival',
+          'Deception','Intimidation','Performance','Persuasion'
+        ])
+        && (!s.keys().hasAny(['talents']) || trainerTalentsValid(s.talents,request.auth.uid));
     }
 
     // Approved Trainers can browse cards; only an owner edits their own.
@@ -189,6 +258,8 @@ service cloud.firestore {
         && request.resource.data.badgeCount is int
         && request.resource.data.badgeCount >= 0
         && request.resource.data.badgeCount <= 8
+        && (!exists(/databases/$(database)/documents/santara_trainer_progress/$(uid))
+           || request.resource.data.badgeCount == trainerGymCount(uid))
         && request.resource.data.quote is string
         && request.resource.data.quote.size() <= 180
         && request.resource.data.team is list
