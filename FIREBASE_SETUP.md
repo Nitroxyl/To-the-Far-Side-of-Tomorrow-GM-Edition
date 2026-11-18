@@ -54,3 +54,12 @@ The publication is a **replacement snapshot**, not a history of events. If you u
 - **No changes on player site**: both sites must use the same Firebase `projectId`; confirm both sites are deployed and publication was successful.
 - **Your GM edits disappeared on another device**: this integration **does not cloud-save GM private data**; GM storage is still browser-local. Export GM backups until a separate private, authenticated cloud-save feature is built.
 - **Existing other Firebase app stopped working**: merge rather than replace its Firestore rules (see step 4).
+
+
+## Trainer Milestones and Character Sheet permissions
+
+The GM Dashboard and Player Unlocks now link to **Trainer Milestones**. Each authorized GM can save an individual Trainer's completed Gym count (0–8) and Champion status. These are kept in the GM-controlled Firestore collection **santara_trainer_progress**, not in the self-editable Trainer Card.
+
+The Player Character Sheet on **trainer-character.html** uses this record to grant Talent slots at Gym 1, 4 and 7 plus Championship, trained skill slots at Gym 2 and 6, +3 and +4 proficiency at Gym 3 and 8, and a +1 ability-score improvement at Gym 5. It also gates Legendary Pursuer until Gym 5.
+
+**Important deployment step:** Updating GitHub does not publish Firestore rules. Open **Firebase Console → Firestore Database → Rules** and publish the latest **firestore.rules** from the GM repository before attempting to save Gym milestones or modern Character Sheets. The updated rules restrict milestone writes to GMs and validate Trainer talents and skills against saved milestones.
