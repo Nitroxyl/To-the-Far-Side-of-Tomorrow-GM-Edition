@@ -560,7 +560,7 @@ function gmProgressionPage(){
  const entries=owned.map(p=>'<div class="memory-move-row"><div><b>'+esc(p.nickname||p.speciesName)+'</b>'+
   '<span class="hint"> · Lv '+esc(p.level)+' · '+esc(p.speciesName)+'</span></div>'+
   '<button class="btn small" data-act="unlock-moves" data-id="'+esc(p.id)+'">Manage Move Memory</button></div>').join('');
- return dashboard+(ownerFilter?'<section class="panel"><h3>Pokémon-specific unlocks</h3>'+
+ return dashboard+'<section class="panel"><h3>Trainer growth</h3><p class="hint">Gym milestones grant new talents and trained skills. These are managed separately from battle gimmicks.</p><a class="btn" href="./trainer-milestones.html">Manage Gym & Champion Milestones</a></section>'+(ownerFilter?'<section class="panel"><h3>Pokémon-specific unlocks</h3>'+
   '<p class="hint">Move Memory controls what each Pokémon can actually learn and equip. Revealing a custom move above does not teach it.</p>'+
   '<div class="memory-move-list">'+(entries||'<p class="hint">No Pokémon assigned yet.</p>')+'</div>'+
   '<a class="btn" href="./inventory.html">Manage Trainer items and TMs</a></section>':'');
