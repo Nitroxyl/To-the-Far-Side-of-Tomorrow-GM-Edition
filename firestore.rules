@@ -645,8 +645,7 @@ service cloud.firestore {
     // simple nickname changes safely on records created under older schemas.
     function ownerTrackingFieldsUpdate() {
       let changed = request.resource.data.diff(resource.data).affectedKeys();
-      return approved()
-        && resource.data.ownerUid == request.auth.uid
+      return (gm() || (approved() && resource.data.ownerUid == request.auth.uid))
         && request.resource.data.ownerUid == resource.data.ownerUid
         && changed.hasOnly(['currentHp','status','slot','nickname','notes','heldItem','nature','updatedAt'])
         && request.resource.data.updatedAt == request.time
