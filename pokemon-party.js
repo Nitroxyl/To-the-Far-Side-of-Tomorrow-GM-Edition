@@ -12,6 +12,7 @@ import {classifyMove,classificationLabels,MOVE_TRAITS,MOVE_TARGETS} from './poke
 import {TYPES,KEYS,unlockUI,libraryUI,editorUI,controlsUI} from './pokemon-gimmick-ui.js?v=mega-stone-20261027-2';
 import {discoverOfficialMegas,mergeMegaOptions} from './pokemon-official-megas.js';
 import {publicPartySlots,partySignature} from './pokemon-public-party.js';
+import {NATURE_NAMES,natureName,natureLabel,natureDescription,validNature} from './pokemon-natures.js';
 import {applyMegaOverlays,cleanMegaSnapshot} from './pokemon-mega-assignments.js';
 import {suggestedMegaStone,hasRequiredMegaStone} from './pokemon-mega-stones.js?v=baxcalibrite-20261111-1';
 import {SANTARA_CATALOG_GROUPS,santaraCatalogEntries} from './santara-catalog.js?v=mega-baxcalibur-20261111-1';
@@ -30,6 +31,7 @@ const safeImageData=v=>typeof v==='string'&&v.length<=150000&&/^data:image\/webp
 const cap=(s,n)=>String(s??'').trim().slice(0,n);
 const option=(value,label,selected)=>`<option value="${esc(value)}"${String(value)===String(selected)?' selected':''}>${esc(label)}</option>`;
 const opts=(values,selected)=>values.map(v=>option(v,v,selected)).join('');
+const natureOptions=selected=>NATURE_NAMES.map(n=>option(n,natureLabel(n),natureName(selected))).join('');
 const statuses=['None','Burned','Poisoned','Badly poisoned','Paralyzed','Asleep','Frozen'];
 const STAT_NAMES=['HP','Atk','Def','SpA','SpD','Spe'];
 const apiCache=new Map(),moveCache=new Map(),speciesFormCache=new Map();
@@ -150,7 +152,7 @@ function copyAssignmentDraft(){
   level:Number(fd.get('level'))||5,nickname:cap(fd.get('nickname'),32),
   ability:cap(fd.get('ability'),48),maxHp:Number(fd.get('maxHp'))||current.maxHp||0,
   currentHp:Number(fd.get('currentHp')),slot:Number(fd.get('slot'))||0,
-  heldItem:cap(fd.get('heldItem'),80),moves:Array.from({length:4},(_,i)=>cap(fd.get('move'+(i+1)),48)).filter(Boolean),
+  heldItem:cap(fd.get('heldItem'),80),nature:natureName(fd.get('nature')||current.nature),moves:Array.from({length:4},(_,i)=>cap(fd.get('move'+(i+1)),48)).filter(Boolean),
   origin:cap(fd.get('origin'),150),notes:cap(fd.get('notes'),1000)};
 }
 function catalogReturn(){
@@ -1219,7 +1221,7 @@ function detail(m){
  const shown=displayPokemon(m),s=shown.baseStats||{},d=combatSummary(shown,battleRules);
  const mul=v=>typeof v==='number'?`×${v.toFixed(2)}`:'Pending';
  return `<section class="panel"><div class="toolbar"><button class="btn" data-act="back">← Back</button><div class="actions">${GM_SITE?`<button class="btn" data-act="edit" data-id="${esc(m.id)}">Edit Pokémon</button><button class="btn danger" data-act="delete" data-id="${esc(m.id)}">Release record</button>`:''}</div></div>
- <div class="detail-head">${artwork(shown)}<div><span class="eyebrow">${esc(m.source==='custom'?'SANTARA CUSTOM SPECIES':'OFFICIAL POKÉMON')}</span><h2>${esc(m.nickname||m.speciesName)} <span class="chip">Lv. ${m.level}</span> <span class="chip">D&D Lv. ${d.dndLevel}</span> ${shown.mega?'<span class="chip">MEGA</span>':''}</h2><p>${esc(shown.displayName)} · ${esc((shown.types||[]).join(' / '))} · ${esc(shown.ability||'No ability')}${shown.tera?' · TERA':''}</p><p>Held item: ${esc(m.heldItem||'None')} · ${esc(m.status||'None')}</p>${customAbilityByName(shown.ability)?`<p class="hint"><b>${esc(shown.ability)}:</b> ${esc(customAbilityByName(shown.ability).description)}</p>`:''}</div></div></section>
+ <div class="detail-head">${artwork(shown)}<div><span class="eyebrow">${esc(m.source==='custom'?'SANTARA CUSTOM SPECIES':'OFFICIAL POKÉMON')}</span><h2>${esc(m.nickname||m.speciesName)} <span class="chip">Lv. ${m.level}</span> <span class="chip">D&D Lv. ${d.dndLevel}</span> ${shown.mega?'<span class="chip">MEGA</span>':''}</h2><p>${esc(shown.displayName)} · ${esc((shown.types||[]).join(' / '))} · ${esc(shown.ability||'No ability')}${shown.tera?' · TERA':''}</p><p>Nature: <b>${esc(natureName(m.nature))}</b> · Held item: ${esc(m.heldItem||'None')} · ${esc(m.status||'None')}</p>${customAbilityByName(shown.ability)?`<p class="hint"><b>${esc(shown.ability)}:</b> ${esc(customAbilityByName(shown.ability).description)}</p>`:''}</div></div></section>
  <div class="columns"><section class="panel"><h3>Battle Sheet ${shown.mega?'<span class="chip">Mega stats active</span>':''}</h3>${shown.mega?'<p class="hint">Base form preserved. Revert Mega to restore original stats.</p>':''}<div class="stats-grid">${statKeys.map((key,i)=>`<div class="stat"><b>${Number(s[key])||0}</b><small>${statLabels[i]}</small></div>`).join('')}</div>
  <p class="hint">Grid movement: <b>${d.movementSquares} squares</b> (${d.movementFeet} ft). D&D level: ${d.dndLevel}/20; proficiency: +${d.proficiencyBonus}. These remain useful for adventure encounters.</p>
  <p class="flag">V6: Pokémon damage and defenses use the standard Pokémon formula, not the old dice or stat-tier multipliers. All IVs are effectively perfect (31). <a href="./damage-calculator.html?attacker=${encodeURIComponent(m.id)}">Open the calculator</a>.</p>
@@ -1231,11 +1233,20 @@ function detail(m){
   const stats=info?.type?`${esc(info.type)} · BP ${info.power??'—'} · Accuracy ${info.accuracy??'—'}`:'BP / accuracy unavailable';
   return `<div class="move"><b>${esc(name)}</b><div class="move-classifications">${tags}</div><p class="hint">${stats}</p>${info?.description?`<p class="hint">${esc(info.description)}</p>`:''}</div>`;
  }).join(''):'<div class="hint">No moves assigned by the GM yet.</div>'}</div></section>
- ${controlsUI(m,unlocks(m.ownerUid),esc,option,megaCompatible(m,m.megaForm),megaAssignments[m.id]?.requiredStone||'')}<section class="panel"><h3>Battle tracking</h3><p class="hint">${shown.dynamax?`Dynamax HP: ${shown.currentHp}/${shown.maxHp}. Stored base HP: ${m.currentHp}/${m.maxHp}.`:"Mega Evolution does not alter tracked maximum HP (consistent with standard Mega HP rules)."}</p><form id="track-form" class="form-grid">
+ ${controlsUI(m,unlocks(m.ownerUid),esc,option,megaCompatible(m,m.megaForm),megaAssignments[m.id]?.requiredStone||'')}
+ <section class="panel"><h3>Pokémon customization</h3>
+ <p class="hint">Change this Pokémon's nickname, held item or Nature without modifying its level, moves, abilities, or HP. Changes also appear in the damage calculator.</p>
+ <form id="pokemon-customize-form" class="form-grid">
+ <label class="field">Nickname<input name="nickname" maxlength="32" value="${esc(m.nickname||'')}" placeholder="Species name if left blank"></label>
+ <label class="field">Held item<input name="heldItem" maxlength="80" value="${esc(m.heldItem||'')}" placeholder="e.g. Leftovers, Choice Scarf, Mega Stone" list="held-item-suggestions"><small class="hint">Custom items are allowed, but only supported effects are calculated automatically.</small></label>
+ <datalist id="held-item-suggestions"><option value="Leftovers"></option><option value="Life Orb"></option><option value="Choice Band"></option><option value="Choice Specs"></option><option value="Choice Scarf"></option><option value="Focus Sash"></option><option value="Assault Vest"></option><option value="Sitrus Berry"></option><option value="Heavy-Duty Boots"></option><option value="Eviolite"></option><option value="Expert Belt"></option><option value="Rocky Helmet"></option></datalist>
+ <label class="field full">Nature<select name="nature">${natureOptions(m.nature)}</select><small class="hint">Nature changes effective battle stats by ±10%, except HP. Neutral Natures have no effect.</small></label>
+ <p class="hint full">Currently: ${esc(natureDescription(m.nature))} Held items are recorded here; they are not automatically withdrawn from the Trainer Bag.</p>
+ <div class="actions"><button class="btn primary" type="submit">Save Pokémon customization</button></div>
+ </form></section><section class="panel"><h3>Battle tracking</h3><p class="hint">${shown.dynamax?`Dynamax HP: ${shown.currentHp}/${shown.maxHp}. Stored base HP: ${m.currentHp}/${m.maxHp}.`:"Mega Evolution does not alter tracked maximum HP (consistent with standard Mega HP rules)."}</p><form id="track-form" class="form-grid">
  <label class="field">Current HP <span class="hint">Maximum ${m.maxHp}</span><input name="currentHp" type="number" min="0" max="${m.maxHp}" required value="${m.currentHp}"></label>
  <label class="field">Status<select name="status">${statuses.map(s=>option(s,s,m.status||'None')).join('')}</select></label>
  <label class="field">Party slot <span class="hint">Storage = 0</span><select name="slot">${Array.from({length:7},(_,i)=>option(i,i===0?'Storage':`Slot ${i}`,m.slot||0)).join('')}</select></label>
- <label class="field">Nickname<input name="nickname" maxlength="32" value="${esc(m.nickname||'')}"></label>
  <label class="field full">Notes<textarea name="notes" maxlength="1000">${esc(m.notes||'')}</textarea></label>
  <p class="hint full">Where obtained: ${esc(m.origin||'Not recorded')}. ${GM_SITE?'GM and Trainer can update battle tracking.':'Only you and the GM can access this Pokémon record.'}</p>
  <div class="actions"><button class="btn primary" type="submit">Save battle record</button><button class="btn" data-act="heal" type="button">Full heal</button></div>
@@ -1293,6 +1304,7 @@ function gmForm(){
  <span class="hint">Official Mega forms are discovered automatically from PokéAPI. Santara custom and reworked Megas appear alongside them.</span><span class="hint" id="mega-availability" aria-live="polite">${d.source==='custom'?'Custom species: choose a registered Santara Mega form.':d.speciesKey?'Looking up official Mega forms…':'Fetch the regular species first to discover its Mega Evolutions.'}</span></label>
  <label class="field">Required Mega Stone<input name="requiredStone" maxlength="80" value="${esc(megaAssignments[existing?.id]?.requiredStone||suggestedMegaStone(d,megaChoiceFor(d).find(x=>x.slug===d.megaForm?.slug)||d.megaForm))}" placeholder="e.g. Charizardite Z"><span class="hint">Set by the GM for this assigned Mega. Custom stone names are supported.</span></label>
  <label class="field">Held item<input name="heldItem" maxlength="80" value="${esc(d.heldItem||'')}"></label>
+ <label class="field">Nature<select name="nature">${natureOptions(d.nature)}</select><small class="hint">Applied by the standard Pokémon damage calculator (±10% except HP).</small></label>
  ${existing?'<div class="actions"><button type="button" class="btn small" data-act="equip-mega-stone">Equip required Mega Stone</button></div>':''}
  <div class="field full"><span class="eyebrow">Four move slots</span><p class="hint">Moves must belong to this exact form's compatible game movepool, including its TMs, or be eligible custom moves. Sources appear in suggestions. Mega-exclusive moves still need their assigned Mega form.</p>${d.source==='official'?`<p class="hint">Pokémon move data: ${d.learnsetVersionGroup==='all-generations'?'All historical games':esc(d.learnsetVersionGroup||'No compatible version')} · ${Number(d.tmMoves?.length)||0} TM-compatible moves${d.inheritedFrom?.length?' · inherited from '+esc(d.inheritedFrom.join(', ')):''}${d.learnsetIncomplete?' · pre-evolution lookup incomplete; refetch to retry':''}</p>`:''}<p class="hint" id="move-legality-feedback" aria-live="polite"></p>
  <div class="move-fields">${Array.from({length:4},(_,i)=>`<label class="field">Move ${i+1}<input name="move${i+1}" maxlength="48" list="known-moves" placeholder="Search or type a move" value="${esc((d.moves||[])[i]||'')}"></label>`).join('')}</div>
@@ -1546,7 +1558,7 @@ async function saveAssign(form){
   ownerUid,speciesKey:d.speciesKey,speciesName:d.speciesName,source:d.source,
   baseStats:d.baseStats,types:d.types,abilities:d.abilities||[],spriteUrl:d.spriteUrl||'',spriteData:d.spriteData||'',
   nickname:cap(f.get('nickname'),32),level,ability:cap(f.get('ability'),48),
-  maxHp,currentHp,status:existing?.status||'None',slot,heldItem:cap(f.get('heldItem'),80),moves,origin:cap(f.get('origin'),150),notes:cap(f.get('notes'),1000),
+  maxHp,currentHp,status:existing?.status||'None',slot,heldItem:cap(f.get('heldItem'),80),nature:natureName(f.get('nature')),moves,origin:cap(f.get('origin'),150),notes:cap(f.get('notes'),1000),
   // The selected Mega is stored only in its independent, owner-scoped link.
    // Do not put its snapshot through the base Pokémon validator too.
    teraType,megaActive:false,
@@ -1600,6 +1612,23 @@ async function saveAssign(form){
  }
  say('Pokémon saved and synced to the Trainer account.');clearSelection();
 }
+async function savePersonalization(form){
+ const mon=pokemon.find(m=>m.id===chosen);
+ if(!mon)throw Error('Pokémon record is no longer available.');
+ if(!GM_SITE&&mon.ownerUid!==user?.uid)throw Error('You can only customize your own Pokémon.');
+ const fd=new FormData(form);
+ const nickname=cap(fd.get('nickname'),32);
+ const heldItem=cap(fd.get('heldItem'),80);
+ const nature=String(fd.get('nature')||'Serious');
+ if(!validNature(nature))throw Error('Select one of the 25 standard Pokémon Natures.');
+ const changes={};
+ if(nickname!==String(mon.nickname||''))changes.nickname=nickname;
+ if(heldItem!==String(mon.heldItem||''))changes.heldItem=heldItem;
+ if(nature!==String(mon.nature||'Serious'))changes.nature=nature;
+ if(!Object.keys(changes).length){say('No customization changes to save.');return;}
+ await updateDoc(doc(store,'santara_pokemon',mon.id),{...changes,updatedAt:serverTimestamp()});
+ say('Pokémon customization saved. Nature and held item will carry into the damage calculator.');
+}
 async function saveTracking(form){
  const mon=pokemon.find(m=>m.id===chosen);
  if(!mon)throw Error('Pokémon is no longer available.');
@@ -1608,13 +1637,17 @@ async function saveTracking(form){
  if(!Number.isInteger(slot)||slot<0||slot>6)throw Error('Invalid slot.');
  const status=String(f.get('status'));
  if(!statuses.includes(status))throw Error('Invalid status.');
- const payload={currentHp:hp,status,slot,nickname:cap(f.get('nickname'),32),notes:cap(f.get('notes'),1000),updatedAt:serverTimestamp()};
- const occupying=pokemon.find(m=>m.id!==mon.id&&m.ownerUid===mon.ownerUid&&Number(m.slot)===slot&&slot>0);
+ const values={currentHp:hp,status,slot,notes:cap(f.get('notes'),1000)};
+ const changed=Object.fromEntries(Object.entries(values).filter(([key,value])=>value!==mon[key]));
+ if(!Object.keys(changed).length){say('No battle tracking changes to save.');return;}
+ const occupying=Object.hasOwn(changed,'slot')&&slot>0
+  ?pokemon.find(m=>m.id!==mon.id&&m.ownerUid===mon.ownerUid&&Number(m.slot)===slot)
+  :null;
  const batch=writeBatch(store);
  if(occupying)batch.update(doc(store,'santara_pokemon',occupying.id),{slot:Number(mon.slot)||0,updatedAt:serverTimestamp()});
- batch.update(doc(store,'santara_pokemon',mon.id),payload);
+ batch.update(doc(store,'santara_pokemon',mon.id),{...changed,updatedAt:serverTimestamp()});
  await batch.commit();
- say('Battle record saved.');render();
+ say('Battle tracking saved.');render();
 }
 root.addEventListener('click',async e=>{
  const b=e.target.closest('[data-act]');if(!b||busy)return;
@@ -1839,6 +1872,7 @@ root.addEventListener('submit',async e=>{
  try{
   if(form.id==='party-login'){const f=new FormData(form);await signInWithEmailAndPassword(auth,String(f.get('email')).trim(),String(f.get('password')))}
   if(form.id==='track-form')await saveTracking(form);
+  if(form.id==='pokemon-customize-form')await savePersonalization(form);
    if(form.id==='memory-slots-form')await saveMemorySlots(form);
    if(form.id==='memory-grant-form'&&GM_SITE){
     const f=new FormData(form),move=cap(f.get('memoryMove'),48),source=String(f.get('memorySource')||'gm');
