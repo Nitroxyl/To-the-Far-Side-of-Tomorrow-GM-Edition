@@ -13,6 +13,7 @@ import {TYPES,KEYS,unlockUI,libraryUI,editorUI,controlsUI} from './pokemon-gimmi
 import {discoverOfficialMegas,mergeMegaOptions} from './pokemon-official-megas.js';
 import {publicPartySlots,partySignature} from './pokemon-public-party.js';
 import {NATURE_NAMES,natureName,natureLabel,natureDescription,validNature} from './pokemon-natures.js';
+import {gigantamaxArtwork} from './pokemon-gmax-artwork.js';
 import {applyMegaOverlays,cleanMegaSnapshot} from './pokemon-mega-assignments.js';
 import {suggestedMegaStone,hasRequiredMegaStone} from './pokemon-mega-stones.js?v=baxcalibrite-20261111-1';
 import {SANTARA_CATALOG_GROUPS,santaraCatalogEntries} from './santara-catalog.js?v=mega-baxcalibur-20261111-1';
@@ -1217,6 +1218,25 @@ async function revokeRememberedMove(monId,name){
  say(name+' revoked. If equipped, it was also removed from the active moveset.');
 }
 
+function gmaxArtworkPreview(mon){
+ const form=gigantamaxArtwork(mon);
+ if(!form)return '';
+ const src=esc(form.artworkUrl),fallback=esc(form.spriteUrl),label=esc(form.label);
+ const gmaxImage='<img src="'+src+'" alt="'+label+' artwork" loading="lazy" decoding="async" onerror="this.onerror=null;this.src=\''+fallback+'\'">';
+ return `<div class="field full gmax-customization-preview">
+ <details class="gmax-artwork">
+  <summary><span class="gmax-artwork-thumbnail">${gmaxImage}</span>
+   <span class="gmax-artwork-heading"><b>View Gigantamax form</b><small>${label} · Official artwork comparison</small></span>
+   <span class="gmax-artwork-expand" aria-hidden="true">⌄</span>
+  </summary>
+  <div class="gmax-artwork-comparison">
+   <figure><div class="gmax-artwork-canvas">${artwork(mon)}</div><figcaption>Current appearance</figcaption></figure>
+   <figure><div class="gmax-artwork-canvas">${gmaxImage}</div><figcaption>${label}</figcaption></figure>
+  </div>
+  <p class="hint">Preview only — this does not unlock or activate Gigantamax, spend Max turns, or change the Pokémon's saved appearance.</p>
+ </details></div>`;
+}
+
 function detail(m){
  const shown=displayPokemon(m),s=shown.baseStats||{},d=combatSummary(shown,battleRules);
  const mul=v=>typeof v==='number'?`×${v.toFixed(2)}`:'Pending';
@@ -1241,6 +1261,7 @@ function detail(m){
  <label class="field">Held item<input name="heldItem" maxlength="80" value="${esc(m.heldItem||'')}" placeholder="e.g. Leftovers, Choice Scarf, Mega Stone" list="held-item-suggestions"><small class="hint">Custom items are allowed, but only supported effects are calculated automatically.</small></label>
  <datalist id="held-item-suggestions"><option value="Leftovers"></option><option value="Life Orb"></option><option value="Choice Band"></option><option value="Choice Specs"></option><option value="Choice Scarf"></option><option value="Focus Sash"></option><option value="Assault Vest"></option><option value="Sitrus Berry"></option><option value="Heavy-Duty Boots"></option><option value="Eviolite"></option><option value="Expert Belt"></option><option value="Rocky Helmet"></option></datalist>
  <label class="field full">Nature<select name="nature">${natureOptions(m.nature)}</select><small class="hint">Nature changes effective battle stats by ±10%, except HP. Neutral Natures have no effect.</small></label>
+${gmaxArtworkPreview(m)}
  <p class="hint full">Currently: ${esc(natureDescription(m.nature))} Held items are recorded here; they are not automatically withdrawn from the Trainer Bag.</p>
  <div class="actions"><button class="btn primary" type="submit">Save Pokémon customization</button></div>
  </form></section><section class="panel"><h3>Battle tracking</h3><p class="hint">${shown.dynamax?`Dynamax HP: ${shown.currentHp}/${shown.maxHp}. Stored base HP: ${m.currentHp}/${m.maxHp}.`:"Mega Evolution does not alter tracked maximum HP (consistent with standard Mega HP rules)."}</p><form id="track-form" class="form-grid">
