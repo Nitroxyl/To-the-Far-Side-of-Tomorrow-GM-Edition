@@ -3,7 +3,7 @@ import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,signInWithPopup,Go
 import {getFirestore,getDocs,collection,query,where} from 'https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js';
 import {applyMegaOverlays} from './pokemon-mega-assignments.js?v=required-stone-v1';
 import {SANTARA_MEGA_PREVIEWS,officialMegaPreviews,eligibleMegaForms,requiredStoneFor,matchesMegaStone,megaStoneNames,isStoryMega} from './santara-calculator-megas.js';
-import {computeDamage,titleType} from './santara-damage-core.js?v=ev-free-20261114-1';
+import {computeDamage,titleType} from './santara-damage-core.js?v=saved-natures-20261123-1';
 
 const gm=window.SANTARA_POKEMON_EDITION==='gm',host=document.querySelector('#calc-app');
 const playerProgression={mega:true,megaFormUnlocks:[]};
