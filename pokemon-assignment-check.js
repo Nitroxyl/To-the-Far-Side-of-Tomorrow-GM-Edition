@@ -27,7 +27,7 @@ export function assignmentProblems(d){
  const expected=['ownerUid','speciesKey','speciesName','source','baseStats','types','abilities',
  'spriteUrl','spriteData','nickname','level','ability','maxHp','currentHp',
  'status','slot','heldItem','moves','origin','notes','updatedAt',
- 'teraType','megaForm','megaActive','teraActive','zUsed','dynamaxTurns','dynamaxUsed'];
+ 'teraType','megaForm','megaActive','teraActive','zUsed','dynamaxTurns','dynamaxUsed','nature'];
  const core=expected.slice(0,21);
  for(const k of core)if(!own(d,k))errors.push('Missing '+k);
  for(const k of Object.keys(d))if(!expected.includes(k))errors.push('Unexpected field: '+k);
@@ -48,6 +48,7 @@ export function assignmentProblems(d){
  if(!STATUSES.includes(d.status))errors.push('Unknown status condition');
  if(!integer(d.slot,0,6))errors.push('Party slot must be from 0 to 6');
  if(!text(d.heldItem,80))errors.push('Held item cannot exceed 80 characters');
+ if(own(d,'nature')&&!["Adamant","Bashful","Bold","Brave","Calm","Careful","Docile","Gentle","Hardy","Hasty","Impish","Jolly","Lax","Lonely","Mild","Modest","Naive","Naughty","Quiet","Quirky","Rash","Relaxed","Sassy","Serious","Timid"].includes(d.nature))errors.push('Nature must be one of the 25 standard Pokémon Natures');
  if(!list(d.moves,4))errors.push('A Pokémon can know up to four moves');
  if(!text(d.origin,150))errors.push('Origin cannot exceed 150 characters');
  if(!text(d.notes,1000))errors.push('Shared notes cannot exceed 1,000 characters');
