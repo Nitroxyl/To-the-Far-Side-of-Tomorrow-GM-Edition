@@ -453,7 +453,7 @@ service cloud.firestore {
           'ownerUid','speciesKey','speciesName','source','baseStats','types','abilities',
           'spriteUrl','spriteData','nickname','level','ability','maxHp','currentHp',
           'status','slot','heldItem','moves','origin','notes','updatedAt',
-          'teraType','megaForm','megaActive','teraActive','zUsed','dynamaxTurns','dynamaxUsed'
+          'teraType','megaForm','megaActive','teraActive','zUsed','dynamaxTurns','dynamaxUsed','nature'
         ])
         && d.keys().hasAll([
           'ownerUid','speciesKey','speciesName','source','baseStats','types','abilities',
@@ -476,6 +476,7 @@ service cloud.firestore {
         && d.status in ['None','Burned','Poisoned','Badly poisoned','Paralyzed','Asleep','Frozen']
         && d.slot is int && d.slot >= 0 && d.slot <= 6
         && d.heldItem is string && d.heldItem.size() <= 80
+        && (!('nature' in d) || d.nature in ['Adamant','Bashful','Bold','Brave','Calm','Careful','Docile','Gentle','Hardy','Hasty','Impish','Jolly','Lax','Lonely','Mild','Modest','Naive','Naughty','Quiet','Quirky','Rash','Relaxed','Sassy','Serious','Timid'])
         && shortList(d.moves,4)
         && d.origin is string && d.origin.size() <= 150
         && d.notes is string && d.notes.size() <= 1000
@@ -647,7 +648,7 @@ service cloud.firestore {
       return approved()
         && resource.data.ownerUid == request.auth.uid
         && request.resource.data.ownerUid == resource.data.ownerUid
-        && changed.hasOnly(['currentHp','status','slot','nickname','notes','updatedAt'])
+        && changed.hasOnly(['currentHp','status','slot','nickname','notes','heldItem','nature','updatedAt'])
         && request.resource.data.updatedAt == request.time
         && (!changed.hasAny(['currentHp']) ||
           (request.resource.data.currentHp is int
@@ -664,7 +665,12 @@ service cloud.firestore {
            && request.resource.data.nickname.size() <= 32))
         && (!changed.hasAny(['notes']) ||
           (request.resource.data.notes is string
-           && request.resource.data.notes.size() <= 1000));
+           && request.resource.data.notes.size() <= 1000))
+        && (!changed.hasAny(['heldItem']) ||
+          (request.resource.data.heldItem is string
+           && request.resource.data.heldItem.size() <= 80))
+        && (!changed.hasAny(['nature']) ||
+          request.resource.data.nature in ['Adamant','Bashful','Bold','Brave','Calm','Careful','Docile','Gentle','Hardy','Hasty','Impish','Jolly','Lax','Lonely','Mild','Modest','Naive','Naughty','Quiet','Quirky','Rash','Relaxed','Sassy','Serious','Timid']);
     }
 
     match /santara_pokemon/{pokemonId} {
@@ -681,7 +687,7 @@ service cloud.firestore {
         || (approved() && resource.data.ownerUid == request.auth.uid
           && request.resource.data.ownerUid == resource.data.ownerUid
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-            'currentHp','status','slot','nickname','notes','updatedAt',
+            'currentHp','status','slot','nickname','notes','heldItem','nature','updatedAt',
             'teraType','teraActive','zUsed','dynamaxTurns','dynamaxUsed'
           ])
           && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['teraType','teraActive'])
