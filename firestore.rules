@@ -219,9 +219,46 @@ service cloud.firestore {
         && (!s.keys().hasAny(['talents']) || trainerTalentsValid(s.talents,request.auth.uid));
     }
 
+    // Update only permitted card fields without revalidating old dossier content.
+    function trainerPublicFieldsOnlyValid() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return changed.hasOnly(['trainerName','trainerClass','trainerTitle','hometown','partnerPokemon','favoriteType','theme','avatar','quote','team','pattern','customPrimary','customSecondary','portraitData','bannerData','updatedAt'])
+        && request.resource.data.updatedAt == request.time
+        && (!changed.hasAny(['trainerName']) || (request.resource.data.trainerName is string && request.resource.data.trainerName.size() > 0 && request.resource.data.trainerName.size() <= 32))
+        && (!changed.hasAny(['trainerClass']) || (request.resource.data.trainerClass is string && request.resource.data.trainerClass.size() <= 32))
+        && (!changed.hasAny(['trainerTitle']) || (request.resource.data.trainerTitle is string && request.resource.data.trainerTitle.size() <= 32))
+        && (!changed.hasAny(['hometown']) || (request.resource.data.hometown is string && request.resource.data.hometown.size() <= 48))
+        && (!changed.hasAny(['partnerPokemon']) || (request.resource.data.partnerPokemon is string && request.resource.data.partnerPokemon.size() <= 48))
+        && (!changed.hasAny(['favoriteType']) || (request.resource.data.favoriteType is string && request.resource.data.favoriteType.size() <= 30))
+        && (!changed.hasAny(['theme']) || (request.resource.data.theme in ['crimson','ocean','emerald','violet','amber','midnight','rose','frost']))
+        && (!changed.hasAny(['avatar']) || (request.resource.data.avatar is string && request.resource.data.avatar.size() <= 12))
+        && (!changed.hasAny(['quote']) || (request.resource.data.quote is string && request.resource.data.quote.size() <= 180))
+        && (!changed.hasAny(['pattern']) || (request.resource.data.pattern in ['plain','grid','diagonal','rings','stars']))
+        && (!changed.hasAny(['customPrimary']) || (request.resource.data.customPrimary is string && request.resource.data.customPrimary.matches('^#[0-9a-fA-F]{6}$')))
+        && (!changed.hasAny(['customSecondary']) || (request.resource.data.customSecondary is string && request.resource.data.customSecondary.matches('^#[0-9a-fA-F]{6}$')))
+        && (!changed.hasAny(['portraitData']) || (request.resource.data.portraitData is string && request.resource.data.portraitData.size() <= 150000 && (request.resource.data.portraitData == '' || request.resource.data.portraitData.matches('^data:image/webp;base64,[A-Za-z0-9+/=]+$'))))
+        && (!changed.hasAny(['bannerData']) || (request.resource.data.bannerData is string && request.resource.data.bannerData.size() <= 260000 && (request.resource.data.bannerData == '' || request.resource.data.bannerData.matches('^data:image/webp;base64,[A-Za-z0-9+/=]+$'))))
+        && (!changed.hasAny(['team']) || (request.resource.data.team is list && request.resource.data.team.size() == 6 && request.resource.data.team[0] is string && request.resource.data.team[0].size() <= 32 && request.resource.data.team[1] is string && request.resource.data.team[1].size() <= 32 && request.resource.data.team[2] is string && request.resource.data.team[2].size() <= 32 && request.resource.data.team[3] is string && request.resource.data.team[3].size() <= 32 && request.resource.data.team[4] is string && request.resource.data.team[4].size() <= 32 && request.resource.data.team[5] is string && request.resource.data.team[5].size() <= 32));
+    }
+    // Editing the sheet must still respect the GM's milestone permissions.
+    function trainerCharacterOnlyValid() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return changed.hasOnly(['characterSheet','updatedAt'])
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.keys().hasAny(['characterSheet'])
+        && trainerDossierValid(request.resource.data.characterSheet);
+    }
+
     // Approved Trainers can browse cards; only an owner edits their own.
     match /santara_trainer_cards/{uid} {
       allow get, list: if member();
+      // A player may edit only their own public card fields or character sheet.
+      // Separate checks prevent stale card data from blocking unrelated edits.
+      allow update: if member()
+        && request.auth.uid == uid
+        && resource.data.ownerUid == uid
+        && request.resource.data.ownerUid == uid
+        && (trainerPublicFieldsOnlyValid() || trainerCharacterOnlyValid());
       allow create, update: if member()
         && request.auth.uid == uid
         && request.resource.data.keys().hasOnly([
