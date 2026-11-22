@@ -639,6 +639,34 @@ service cloud.firestore {
         && shortList(request.resource.data.moves,4)
         && request.resource.data.updatedAt == request.time;
     }
+    // A Trainer may edit only their own tracking fields without having to
+    // revalidate unrelated GM-authored or legacy Pokémon fields. This handles
+    // simple nickname changes safely on records created under older schemas.
+    function ownerTrackingFieldsUpdate() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return approved()
+        && resource.data.ownerUid == request.auth.uid
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && changed.hasOnly(['currentHp','status','slot','nickname','notes','updatedAt'])
+        && request.resource.data.updatedAt == request.time
+        && (!changed.hasAny(['currentHp']) ||
+          (request.resource.data.currentHp is int
+           && resource.data.maxHp is int
+           && request.resource.data.currentHp >= 0
+           && request.resource.data.currentHp <= resource.data.maxHp))
+        && (!changed.hasAny(['status']) ||
+          request.resource.data.status in ['None','Burned','Poisoned','Badly poisoned','Paralyzed','Asleep','Frozen'])
+        && (!changed.hasAny(['slot']) ||
+          (request.resource.data.slot is int
+           && request.resource.data.slot >= 0 && request.resource.data.slot <= 6))
+        && (!changed.hasAny(['nickname']) ||
+          (request.resource.data.nickname is string
+           && request.resource.data.nickname.size() <= 32))
+        && (!changed.hasAny(['notes']) ||
+          (request.resource.data.notes is string
+           && request.resource.data.notes.size() <= 1000));
+    }
+
     match /santara_pokemon/{pokemonId} {
       allow get, list: if gm() || (approved() && resource.data.ownerUid == request.auth.uid);
       allow create: if gm() && pokemonValid(request.resource.data);
@@ -649,6 +677,7 @@ service cloud.firestore {
         || gmLegacyHeldItemUpdate()
         || gmTmMoveUpdate()
         || ownerRememberedMoveUpdate(pokemonId)
+        || ownerTrackingFieldsUpdate()
         || (approved() && resource.data.ownerUid == request.auth.uid
           && request.resource.data.ownerUid == resource.data.ownerUid
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
