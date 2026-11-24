@@ -110,6 +110,52 @@ service cloud.firestore {
       allow delete: if gm();
     }
 
+    // Santara Training Points (TP) are a shared Trainer-wide GM award ledger.
+    // Each owned Pokémon can separately allocate up to min(totalTP, 66) SP.
+    // Every three awarded TP unlock one Pokémon level above the Lv. 15 baseline.
+    match /santara_trainer_training/{uid} {
+      allow get: if gm() || (approved() && request.auth.uid == uid);
+      allow list: if gm();
+      allow create, update: if gm()
+        && request.resource.data.keys().hasOnly(['totalTP','updatedAt'])
+        && request.resource.data.keys().hasAll(['totalTP','updatedAt'])
+        && request.resource.data.totalTP is int
+        && request.resource.data.totalTP >= 0
+        && request.resource.data.totalTP <= 255
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if gm();
+    }
+    function trainerTP(uid) {
+      return exists(/databases/$(database)/documents/santara_trainer_training/$(uid))
+        ? get(/databases/$(database)/documents/santara_trainer_training/$(uid)).data.totalTP : 0;
+    }
+    function trainerSpAllowance(uid) {
+      return trainerTP(uid) >= 66 ? 66 : trainerTP(uid);
+    }
+    function trainerLevelAllowance(uid) {
+      return 15 + math.floor(trainerTP(uid) / 3);
+    }
+    function noStatPoints() {
+      return {'hp':0,'atk':0,'def':0,'spa':0,'spd':0,'spe':0};
+    }
+    function validStatPoints(sp, allowance) {
+      return sp is map
+        && sp.keys().hasOnly(['hp','atk','def','spa','spd','spe'])
+        && sp.keys().hasAll(['hp','atk','def','spa','spd','spe'])
+        && sp.hp is int && sp.hp >= 0 && sp.hp <= 32
+        && sp.atk is int && sp.atk >= 0 && sp.atk <= 32
+        && sp.def is int && sp.def >= 0 && sp.def <= 32
+        && sp.spa is int && sp.spa >= 0 && sp.spa <= 32
+        && sp.spd is int && sp.spd >= 0 && sp.spd <= 32
+        && sp.spe is int && sp.spe >= 0 && sp.spe <= 32
+        && sp.hp + sp.atk + sp.def + sp.spa + sp.spd + sp.spe <= allowance;
+    }
+    function statHpAtLevel(baseHp, level, sp) {
+      return baseHp == 1 ? 1 :
+        math.floor((2 * baseHp + 31 + (sp == 0 ? 0 : 2 * sp - 1)) * level / 100)
+        + level + 10;
+    }
+
     // GM-owned milestone ledger: players read their progress, but cannot award Gym clears.
     match /santara_trainer_progress/{uid} {
       allow get: if member();
@@ -453,7 +499,7 @@ service cloud.firestore {
           'ownerUid','speciesKey','speciesName','source','baseStats','types','abilities',
           'spriteUrl','spriteData','nickname','level','ability','maxHp','currentHp',
           'status','slot','heldItem','moves','origin','notes','updatedAt',
-          'teraType','megaForm','megaActive','teraActive','zUsed','dynamaxTurns','dynamaxUsed','nature'
+          'teraType','megaForm','megaActive','teraActive','zUsed','dynamaxTurns','dynamaxUsed','nature','statPoints'
         ])
         && d.keys().hasAll([
           'ownerUid','speciesKey','speciesName','source','baseStats','types','abilities',
@@ -476,6 +522,7 @@ service cloud.firestore {
         && d.status in ['None','Burned','Poisoned','Badly poisoned','Paralyzed','Asleep','Frozen']
         && d.slot is int && d.slot >= 0 && d.slot <= 6
         && d.heldItem is string && d.heldItem.size() <= 80
+        && (!('statPoints' in d) || validStatPoints(d.statPoints,66))
         && (!('nature' in d) || d.nature in ['Adamant','Bashful','Bold','Brave','Calm','Careful','Docile','Gentle','Hardy','Hasty','Impish','Jolly','Lax','Lonely','Mild','Modest','Naive','Naughty','Quiet','Quirky','Rash','Relaxed','Sassy','Serious','Timid'])
         && shortList(d.moves,4)
         && d.origin is string && d.origin.size() <= 150
@@ -640,20 +687,15 @@ service cloud.firestore {
         && shortList(request.resource.data.moves,4)
         && request.resource.data.updatedAt == request.time;
     }
-    // Level-up is a separately scoped operation; Trainers can increase their
-    // own Pokémon level, but cannot use it to grant arbitrary HP or edit moves,
-    // species, stat blocks, abilities, ownership or battle state.
-    // V6 is cartridge HP at perfect IVs (31), zero EVs.
-    function v6MaxHpForLevel(baseHp, level) {
-      return baseHp == 1 ? 1 :
-        math.floor((2 * baseHp + 31) * level / 100) + level + 10;
-    }
+    // The GM may advance special NPCs directly. Players may only spend the
+    // levels they have unlocked with their shared Trainer TP.
     function ownerPokemonLevelUp() {
       let before = resource.data;
       let after = request.resource.data;
       let changed = after.diff(before).affectedKeys();
-      let hpIncrease = v6MaxHpForLevel(before.baseStats.hp, after.level)
-        - v6MaxHpForLevel(before.baseStats.hp, before.level);
+      let originalHPSp = before.get('statPoints',noStatPoints()).hp;
+      let hpIncrease = statHpAtLevel(before.baseStats.hp, after.level, originalHPSp)
+        - statHpAtLevel(before.baseStats.hp, before.level, originalHPSp);
       return (gm() || (approved() && before.ownerUid == request.auth.uid))
         && before.ownerUid == after.ownerUid
         && changed.hasOnly(['level','maxHp','currentHp','updatedAt'])
@@ -662,6 +704,7 @@ service cloud.firestore {
         && before.level >= 1 && before.level <= 100
         && after.level is int
         && after.level > before.level && after.level <= 100
+        && (gm() || after.level <= trainerLevelAllowance(before.ownerUid))
         && before.baseStats is map
         && before.baseStats.hp is int
         && before.baseStats.hp >= 1 && before.baseStats.hp <= 255
@@ -675,6 +718,36 @@ service cloud.firestore {
         && after.currentHp is int
         && after.currentHp == (before.currentHp == 0 ? 0 :
           before.currentHp + hpIncrease)
+        && after.currentHp >= 0 && after.currentHp <= after.maxHp
+        && after.updatedAt == request.time;
+    }
+    // Only the six SP values (and the HP change they actually produce) can
+    // be edited; a legacy Pokémon's other GM data is never revalidated.
+    function ownerStatPointUpdate() {
+      let before = resource.data;
+      let after = request.resource.data;
+      let changed = after.diff(before).affectedKeys();
+      let previous = before.get('statPoints',noStatPoints());
+      let next = after.statPoints;
+      let gainedHP = statHpAtLevel(before.baseStats.hp,before.level,next.hp)
+        - statHpAtLevel(before.baseStats.hp,before.level,previous.hp);
+      return (gm() || (approved() && before.ownerUid == request.auth.uid))
+        && after.ownerUid == before.ownerUid
+        && changed.hasOnly(['statPoints','maxHp','currentHp','updatedAt'])
+        && changed.hasAll(['statPoints','updatedAt'])
+        && before.baseStats is map && before.baseStats.hp is int
+        && before.baseStats.hp >= 1 && before.baseStats.hp <= 255
+        && before.level is int && before.level >= 1 && before.level <= 100
+        && validStatPoints(previous,66)
+        && validStatPoints(next,gm() ? 66 : trainerSpAllowance(before.ownerUid))
+        && before.maxHp is int && before.maxHp >= 1 && before.maxHp <= 3000
+        && before.currentHp is int && before.currentHp >= 0
+        && before.currentHp <= before.maxHp
+        && after.maxHp is int && after.maxHp == before.maxHp + gainedHP
+        && after.maxHp >= 1 && after.maxHp <= 3000
+        && after.currentHp is int
+        && after.currentHp == (before.currentHp == 0 ? 0 :
+          before.currentHp + gainedHP)
         && after.currentHp >= 0 && after.currentHp <= after.maxHp
         && after.updatedAt == request.time;
     }
@@ -723,6 +796,7 @@ service cloud.firestore {
         || ownerRememberedMoveUpdate(pokemonId)
         || ownerTrackingFieldsUpdate()
         || ownerPokemonLevelUp()
+        || ownerStatPointUpdate()
         || (approved() && resource.data.ownerUid == request.auth.uid
           && request.resource.data.ownerUid == resource.data.ownerUid
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
