@@ -640,6 +640,45 @@ service cloud.firestore {
         && shortList(request.resource.data.moves,4)
         && request.resource.data.updatedAt == request.time;
     }
+    // Level-up is a separately scoped operation; Trainers can increase their
+    // own Pokémon level, but cannot use it to grant arbitrary HP or edit moves,
+    // species, stat blocks, abilities, ownership or battle state.
+    // V6 is cartridge HP at perfect IVs (31), zero EVs.
+    function v6MaxHpForLevel(baseHp, level) {
+      return baseHp == 1 ? 1 :
+        math.floor((2 * baseHp + 31) * level / 100) + level + 10;
+    }
+    function ownerPokemonLevelUp() {
+      let before = resource.data;
+      let after = request.resource.data;
+      let changed = after.diff(before).affectedKeys();
+      let hpIncrease = v6MaxHpForLevel(before.baseStats.hp, after.level)
+        - v6MaxHpForLevel(before.baseStats.hp, before.level);
+      return (gm() || (approved() && before.ownerUid == request.auth.uid))
+        && before.ownerUid == after.ownerUid
+        && changed.hasOnly(['level','maxHp','currentHp','updatedAt'])
+        && changed.hasAll(['level','updatedAt'])
+        && before.level is int
+        && before.level >= 1 && before.level <= 100
+        && after.level is int
+        && after.level > before.level && after.level <= 100
+        && before.baseStats is map
+        && before.baseStats.hp is int
+        && before.baseStats.hp >= 1 && before.baseStats.hp <= 255
+        && before.maxHp is int
+        && before.maxHp >= 1 && before.maxHp <= 3000
+        && before.currentHp is int
+        && before.currentHp >= 0 && before.currentHp <= before.maxHp
+        && after.maxHp is int
+        && after.maxHp == before.maxHp + hpIncrease
+        && after.maxHp >= 1 && after.maxHp <= 3000
+        && after.currentHp is int
+        && after.currentHp == (before.currentHp == 0 ? 0 :
+          before.currentHp + hpIncrease)
+        && after.currentHp >= 0 && after.currentHp <= after.maxHp
+        && after.updatedAt == request.time;
+    }
+
     // A Trainer may edit only their own tracking fields without having to
     // revalidate unrelated GM-authored or legacy Pokémon fields. This handles
     // simple nickname changes safely on records created under older schemas.
@@ -683,6 +722,7 @@ service cloud.firestore {
         || gmTmMoveUpdate()
         || ownerRememberedMoveUpdate(pokemonId)
         || ownerTrackingFieldsUpdate()
+        || ownerPokemonLevelUp()
         || (approved() && resource.data.ownerUid == request.auth.uid
           && request.resource.data.ownerUid == resource.data.ownerUid
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
